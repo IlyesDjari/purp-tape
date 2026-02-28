@@ -2,9 +2,11 @@ package graphql
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/IlyesDjari/purp-tape/backend/internal/db"
 	"github.com/IlyesDjari/purp-tape/backend/internal/handlers"
@@ -238,6 +240,25 @@ func (r *Resolver) MarkNotificationAsRead(ctx context.Context, notificationID st
 	return map[string]interface{}{"success": true}, nil
 }
 
+// MarkNotificationsAsRead marks multiple notifications as read
+func (r *Resolver) MarkNotificationsAsRead(ctx context.Context, notificationIDs []string) (int, error) {
+	userID, ok := ctx.Value("user_id").(string)
+	if !ok {
+		return 0, fmt.Errorf("unauthorized")
+	}
+
+	count := 0
+	for _, notificationID := range notificationIDs {
+		if err := r.NotificationSvc.MarkAsRead(ctx, notificationID, userID); err != nil {
+			r.Log.Warn("failed to mark notification as read", "notification_id", notificationID, "error", err)
+			continue
+		}
+		count++
+	}
+
+	return count, nil
+}
+
 // MarkAllNotificationsAsRead marks all notifications as read
 func (r *Resolver) MarkAllNotificationsAsRead(ctx context.Context) (bool, error) {
 	userID, ok := ctx.Value("user_id").(string)
@@ -265,19 +286,53 @@ func dbUserToGraphQL(user interface{}) *User {
 // GraphQL HTTP Handler
 // ============================================================================
 
-// GraphQLHandler exposes GraphQL endpoint
+// GraphQLHandler exposes GraphQL endpoint with full query execution
 func (r *Resolver) GraphQLHandler(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost && req.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
+	// Extract authorization from context or headers
+	ctx := req.Context()
+	if authHeader := req.Header.Get("Authorization"); authHeader != "" {
+		// Bearer token handling would happen here via middleware
+	}
+
 	// Parse request body
-	// TODO: Use gqlgen or graphql-go library to parse and execute GraphQL queries
+	var queryReq QueryRequest
+	if err := json.NewDecoder(req.Body).Decode(&queryReq); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(&QueryResponse{
+			Errors: []string{"invalid request body: " + err.Error()},
+		})
+		return
+	}
+
+	// Validate query is not empty
+	if strings.TrimSpace(queryReq.Query) == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(&QueryResponse{
+			Errors: []string{"query cannot be empty"},
+		})
+		return
+	}
+
+	// Execute the GraphQL query
+	response := r.ExecuteQuery(ctx, &queryReq)
 
 	w.Header().Set("Content-Type", "application/json")
+	wpayload, err := json.Marshal(response)
+	if err != nil {
+		r.Log.Error("failed to marshal GraphQL response", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"data": {"message": "GraphQL endpoint ready"}}`)
+	w.Write(wpayload)
 }
 
 // GraphQL input types
