@@ -1,65 +1,46 @@
 app = "purptape-api"
 primary_region = "sea"
-console_command = "/app/purptape-api"
 
 [build]
-builder = "dockerfile"
-dockerfile = "./backend/Dockerfile"
+  builder = "dockerfile"
+  dockerfile = "./backend/Dockerfile"
 
 [env]
-PORT = "8080"
-ENV = "production"
-
-# Disable unneeded flags for performance
-[processes]
-api = "/app/purptape-api"
+  PORT = "8080"
+  ENV = "production"
 
 [[services]]
-internal_port = 8080
-protocol = "tcp"
-min_machines_running = 1
+  internal_port = 8080
+  protocol = "tcp"
 
-[services.concurrency]
-type = "connections"
-hard_limit = 1000
-soft_limit = 800
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 1000
+    soft_limit = 800
 
-[[services.ports]]
-port = 80
-handlers = ["http"]
-force_https = true
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
 
-[[services.ports]]
-port = 443
-handlers = ["tls", "http"]
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
 
-# Health check configuration
-[services.http_checks]
-protocol = "http"
-method = "GET"
-path = "/health"
-interval = 10000
-timeout = 5000
-grace_period = "5s"
-min_recovery = 5
-poll_interval = 5000
+  [[services.http_checks]]
+    protocol = "http"
+    method = "GET"
+    path = "/health"
+    interval = 10000
+    timeout = 5000
+    grace_period = "5s"
+    min_recovery = 5
 
 [[vm]]
-cpu_kind = "performance"
-cpus = 1
-memory_mb = 512
+  size = "shared-cpu-1x"
+  memory = "512mb"
 
-# Auto scaling configuration
 [autoscaling]
-enabled = true
-min_machines = 1
-max_machines = 10
-
-[[checks]]
-grace_period = "30s"
-interval = 10000
-method = "GET"
-path = "/health"
-protocol = "http"
-timeout = 5000
-type = "http"
+  enabled = true
+  min_machines = 1
+  max_machines = 10
