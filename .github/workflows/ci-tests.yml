@@ -124,7 +124,7 @@ jobs:
           images: ghcr.io/${{ github.repository_owner }}/purptape-api
           tags: |
             type=ref,event=branch
-            type=sha,prefix={{branch}}-
+            type=sha
             type=raw,value=pr-${{ github.event.pull_request.number }},enable=${{ github.event_name == 'pull_request' }}
 
       - name: Build Docker image (don't push)
