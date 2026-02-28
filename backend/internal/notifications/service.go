@@ -179,7 +179,7 @@ func (s *NotificationService) MarkAllAsRead(ctx context.Context, userID string) 
 }
 
 // GetNotifications retrieves paginated notifications for a user
-func (s *NotificationService) GetNotifications(ctx context.Context, userID string, limit, offset int) ([]models.Notification, int64, error) {
+func (s *NotificationService) GetNotifications(ctx context.Context, userID string, limit, offset int) ([]interface{}, int64, error) {
 	return s.database.GetNotificationsPaginated(ctx, userID, limit, offset)
 }
 

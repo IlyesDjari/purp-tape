@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/IlyesDjari/purp-tape/backend/internal/db"
-	"github.com/IlyesDjari/purp-tape/backend/internal/models"
 )
 
 // PushNotificationService handles FCM push notifications
