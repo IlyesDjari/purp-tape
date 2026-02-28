@@ -18,7 +18,7 @@ func (db *Database) UpsertDeviceToken(ctx context.Context, userID, token, platfo
 		WHERE device_tokens.user_id = $1
 	`
 
-	if err := db.pool.QueryRow(ctx, query, userID, token, platform).Err(); err != nil {
+	if _, err := db.pool.Exec(ctx, query, userID, token, platform); err != nil {
 		return fmt.Errorf("failed to upsert device token: %w", err)
 	}
 
@@ -59,7 +59,7 @@ func (db *Database) DeactivateDeviceToken(ctx context.Context, token string) err
 		WHERE token = $1
 	`
 
-	if err := db.pool.QueryRow(ctx, query, token).Err(); err != nil {
+	if _, err := db.pool.Exec(ctx, query, token); err != nil {
 		return fmt.Errorf("failed to deactivate device token: %w", err)
 	}
 
@@ -109,11 +109,11 @@ func (db *Database) UpsertNotificationPreferences(ctx context.Context, prefs *mo
 			updated_at = CURRENT_TIMESTAMP
 	`
 
-	if err := db.pool.QueryRow(ctx, query,
+	if _, err := db.pool.Exec(ctx, query,
 		prefs.UserID, prefs.PushEnabled, prefs.PushLikes, prefs.PushComments,
 		prefs.PushFollows, prefs.PushShares, prefs.PushMentions,
 		prefs.QuietHours, prefs.QuietHoursStart, prefs.QuietHoursEnd, prefs.BundleByType,
-	).Err(); err != nil {
+	); err != nil {
 		return fmt.Errorf("failed to upsert notification preferences: %w", err)
 	}
 
@@ -141,21 +141,6 @@ func (db *Database) CreateNotification(ctx context.Context, notification interfa
 	return nil
 }
 
-// MarkNotificationAsRead marks a notification as read
-func (db *Database) MarkNotificationAsRead(ctx context.Context, notificationID, userID string) error {
-	query := `
-		UPDATE notifications
-		SET is_read = TRUE
-		WHERE id = $1 AND user_id = $2
-	`
-
-	if err := db.pool.QueryRow(ctx, query, notificationID, userID).Err(); err != nil {
-		return fmt.Errorf("failed to mark notification as read: %w", err)
-	}
-
-	return nil
-}
-
 // MarkAllNotificationsAsRead marks all notifications as read for a user
 func (db *Database) MarkAllNotificationsAsRead(ctx context.Context, userID string) error {
 	query := `
@@ -164,7 +149,7 @@ func (db *Database) MarkAllNotificationsAsRead(ctx context.Context, userID strin
 		WHERE user_id = $1 AND is_read = FALSE
 	`
 
-	if err := db.pool.QueryRow(ctx, query, userID).Err(); err != nil {
+	if _, err := db.pool.Exec(ctx, query, userID); err != nil {
 		return fmt.Errorf("failed to mark all notifications as read: %w", err)
 	}
 

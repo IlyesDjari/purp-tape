@@ -160,7 +160,7 @@ func (s *NotificationService) BulkNotify(ctx context.Context, userIDs []string, 
 
 // MarkAsRead marks a notification as read
 func (s *NotificationService) MarkAsRead(ctx context.Context, notificationID, userID string) error {
-	if err := s.database.MarkNotificationAsRead(ctx, notificationID, userID); err != nil {
+	if err := s.database.MarkNotificationAsRead(ctx, notificationID); err != nil {
 		s.log.Error("failed to mark notification as read", "error", err, "notification_id", notificationID)
 		return err
 	}
