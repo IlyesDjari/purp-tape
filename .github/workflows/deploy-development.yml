@@ -1,0 +1,113 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-development.yml'
+      - '!backend/**.md'
+
+concurrency:
+  group: deploy-dev-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/purptape-api
+          tags: |
+            type=raw,value=dev
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Setup Fly
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io Development
+        run: flyctl deploy --remote-only -c fly.dev.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Get deployment URL
+        id: deploy
+        run: echo "url=https://purptape-api-dev.fly.dev" >> $GITHUB_OUTPUT
+
+      - name: Health check
+        run: |
+          for i in {1..30}; do
+            if curl -f https://purptape-api-dev.fly.dev/health; then
+              echo "✅ App is healthy"
+              exit 0
+            fi
+            echo "Attempt $i: Waiting for app to be ready..."
+            sleep 10
+          done
+          echo "❌ App failed to become healthy"
+          exit 1
+
+      - name: Comment on commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: '🚀 Deployed to Dev: https://purptape-api-dev.fly.dev'
+            });
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: '❌ Development deployment failed. Check [Actions](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
+            });

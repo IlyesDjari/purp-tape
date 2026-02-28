@@ -1,0 +1,45 @@
+app = "purptape-api-staging"
+primary_region = "cdg"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  ENV = "staging"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 500
+    soft_limit = 400
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    protocol = "http"
+    method = "GET"
+    path = "/health"
+    interval = 10000
+    timeout = 5000
+    grace_period = "5s"
+    min_recovery = 5
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+[autoscaling]
+  enabled = true
+  min_machines = 1
+  max_machines = 3

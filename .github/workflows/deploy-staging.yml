@@ -1,0 +1,136 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-staging.yml'
+      - '!backend/**.md'
+
+concurrency:
+  group: deploy-staging-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: purptape
+          POSTGRES_PASSWORD: devpassword123
+          POSTGRES_DB: purptape
+        options: >-
+          --health-cmd="pg_isready -U purptape"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+        ports:
+          - 5432:5432
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Test migrations and build
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_USER: purptape
+          DB_PASSWORD: devpassword123
+          DB_NAME: purptape
+          MIGRATIONS_DIR: migrations
+        run: go test ./...
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/purptape-api
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=staging,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-flyio-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging'
+    environment:
+      name: staging
+      url: https://purptape-api-staging.fly.dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Fly
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io Staging
+        run: flyctl deploy --remote-only -c fly.staging.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Health check
+        run: |
+          for i in {1..30}; do
+            if curl -f https://purptape-api-staging.fly.dev/health; then
+              echo "✅ Staging app is healthy"
+              exit 0
+            fi
+            echo "Attempt $i: Waiting for app to be ready..."
+            sleep 10
+          done
+          echo "❌ Staging app failed to become healthy"
+          exit 1
+
+      - name: Smoke tests
+        run: |
+          echo "Running basic smoke tests..."
+          curl -f https://purptape-api-staging.fly.dev/health || exit 1
+          echo "✅ Smoke tests passed"
