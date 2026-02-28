@@ -60,3 +60,10 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# PurpTape iOS local secrets
+ios/purp tape/purp tape/Secrets.xcconfig
+ios/purp tape/Secrets.xcconfig
+
+# macOS
+.DS_Store

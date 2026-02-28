@@ -1,0 +1,9 @@
+// Base build configuration (safe to commit)
+
+SWIFT_STRICT_CONCURRENCY = complete
+SWIFT_VERSION = 6.0
+OTHER_SWIFT_FLAGS = $(inherited) -warn-concurrency
+OTHER_SWIFT_FLAGS[config=Dev] = $(inherited) -warn-concurrency -enable-actor-data-race-checks
+OTHER_SWIFT_FLAGS[config=Acc] = $(inherited) -warn-concurrency -enable-actor-data-race-checks
+
+#include? "Secrets.xcconfig"
