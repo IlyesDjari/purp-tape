@@ -92,31 +92,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-railway:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Deploy to Railway
-        uses: denoland/deployctl@v1
-        with:
-          project: ${{ secrets.RAILWAY_PROJECT_ID }}
-          environment: production
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        # Alternative: Use Railway CLI directly
-        # run: |
-        #   npm i -g @railway/cli
-        #   railway up --environment production
-
   deploy-flyio:
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && false  # Set to true if using Fly.io
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout
@@ -133,7 +112,7 @@ jobs:
   deploy-google-cloud-run:
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && false  # Set to true if using Cloud Run
+    if: github.ref == 'refs/heads/main' && false  # Uncomment if switching to Cloud Run
 
     steps:
       - name: Checkout
@@ -165,7 +144,7 @@ jobs:
   deploy-ssh:
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && false  # Set to true if deploying via SSH
+    if: github.ref == 'refs/heads/main' && false  # Uncomment if using SSH deployment
 
     steps:
       - name: Checkout

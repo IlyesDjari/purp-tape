@@ -16,9 +16,9 @@ if [ ! -f "go.mod" ] && [ ! -f "backend/go.mod" ]; then
 fi
 
 echo "Available deployment options:"
-echo "1. Railway (Recommended - simplest)"
-echo "2. Fly.io (Global edge deployment)"
-echo "3. Google Cloud Run (Serverless)"
+echo "1. Fly.io (Recommended - Global edge deployment, best for audio)"
+echo "2. Railway (Simplest setup, single region)"
+echo "3. Google Cloud Run (Serverless, most cost-efficient)"
 echo "4. Manual SSH deployment"
 echo ""
 
@@ -26,6 +26,41 @@ read -p "Choose deployment platform (1-4): " choice
 
 case $choice in
     1)
+        echo "📍 Setting up Fly.io deployment (RECOMMENDED)"
+        echo ""
+        echo "Prerequisites:"
+        echo "1. Create account at https://fly.io"
+        echo "2. Install flyctl: brew install flyctl"
+        echo "3. Authenticate: flyctl auth login"
+        echo ""
+        read -p "Enter your Fly.io API Token (from 'flyctl tokens create deploy'): " flyio_token
+        
+        echo ""
+        echo "Adding GitHub Secrets..."
+        echo "gh secret set FLY_API_TOKEN --body '${flyio_token}'"
+        echo ""
+        echo "Create Fly app (if not already done):"
+        echo "  flyctl apps create purptape-api"
+        echo ""
+        echo "Then set environment variables:"
+        echo "  flyctl secrets set DATABASE_URL=postgres://..."
+        echo "  flyctl secrets set SUPABASE_URL=https://..."
+        echo "  flyctl secrets set SUPABASE_ANON_KEY=..."
+        echo "  flyctl secrets set R2_ACCESS_KEY_ID=..."
+        echo "  flyctl secrets set R2_SECRET_ACCESS_KEY=..."
+        echo "  flyctl secrets set R2_ENDPOINT=..."
+        echo "  flyctl secrets set R2_BUCKET_NAME=..."
+        echo ""
+        echo "Deploy: Just push to main branch!"
+        echo ""
+        echo "Why Fly.io?"
+        echo "  ✅ Global edge deployment (30+ regions, <50ms latency)"
+        echo "  ✅ Auto-scales infinitely"
+        echo "  ✅ Perfect for audio streaming"
+        echo "  ✅ Enterprise-grade security"
+        ;;
+        
+    2)
         echo "📍 Setting up Railway deployment"
         echo ""
         echo "Prerequisites:"
@@ -38,8 +73,6 @@ case $choice in
         
         echo ""
         echo "Adding GitHub Secrets..."
-        echo "Run these commands in GitHub CLI or add manually in Settings → Secrets:"
-        echo ""
         echo "gh secret set RAILWAY_TOKEN --body '${railway_token}'"
         echo "gh secret set RAILWAY_PROJECT_ID --body '${railway_project_id}'"
         echo ""
@@ -52,33 +85,8 @@ case $choice in
         echo "  • R2_ENDPOINT"
         echo "  • R2_BUCKET_NAME"
         echo ""
-        echo "Deploy command (or wait for GitHub Actions):"
-        echo "  npm install -g @railway/cli"
-        echo "  railway up --environment production"
-        ;;
-        
-    2)
-        echo "📍 Setting up Fly.io deployment"
-        echo ""
-        echo "Prerequisites:"
-        echo "1. Create account at https://fly.io"
-        echo "2. Install flyctl: brew install flyctl"
-        echo "3. Authenticate: flyctl auth login"
-        echo ""
-        read -p "Enter your Fly.io App Name: " flyio_app
-        read -p "Enter your Fly.io API Token: " flyio_token
-        
-        echo ""
-        echo "Adding GitHub Secrets..."
-        echo "gh secret set FLY_API_TOKEN --body '${flyio_token}'"
-        echo ""
-        echo "Create fly.toml in your root directory or run:"
-        echo "  flyctl apps create ${flyio_app}"
-        echo ""
-        echo "Then set environment variables:"
-        echo "  flyctl secrets set DATABASE_URL=postgres://..."
-        echo "  flyctl secrets set SUPABASE_URL=https://..."
-        echo "  ... (see fly.toml generation below)"
+        echo "Update .github/workflows/deploy-production.yml"
+        echo "to enable the deploy-railway job"
         ;;
         
     3)

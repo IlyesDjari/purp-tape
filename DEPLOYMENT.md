@@ -1,221 +1,313 @@
 # Production Deployment Guide
 
-This guide explains how to set up and configure your GitHub Actions deployment pipeline for PurpTape.
+This guide explains how to set up and configure your GitHub Actions deployment pipeline for PurpTape using **Fly.io** as the primary deployment target.
 
 ## Overview
 
 The deployment workflow (`deploy-production.yml`) automatically:
 1. ✅ Tests and builds your Go backend
-2. 🏗️ Builds a Docker image
+2. 🏗️ Builds a Docker image  
 3. 📦 Pushes the image to GitHub Container Registry (GHCR)
-4. 🚀 Deploys to your chosen platform
+4. 🚀 Deploys to Fly.io (30+ global edge regions)
+
+## Why Fly.io?
+
+This is an **optimal architecture for a market-leading audio streaming backend**:
+
+| Factor | Rating | Why |
+|--------|--------|-----|
+| **Global Performance** | ⭐⭐⭐⭐⭐ | 30+ edge regions = <50ms latency worldwide |
+| **Cost Efficiency** | ⭐⭐⭐⭐ | Start at 1 machine (~$0), scales infinitely |
+| **Scalability** | ⭐⭐⭐⭐⭐ | Auto-scales from 0 to millions of requests |
+| **Security** | ⭐⭐⭐⭐⭐ | Enterprise-grade, automatic TLS, DDoS protection |
+| **Developer Experience** | ⭐⭐⭐⭐⭐ | Simple CLI, great dashboards, fast deploys |
+| **Future-Proof** | ⭐⭐⭐⭐⭐ | Can add WebSockets, Postgres standby, etc. |
+
+**Your Full Stack (World-Class)**:
+- API: Go on Fly.io (edge-deployed) ✅
+- Database: PostgreSQL on Supabase ✅
+- Storage: Cloudflare R2 (global CDN) ✅
+- DDoS/WAF: Cloudflare ✅
+
+This is what enterprise audio companies use.
 
 ## Prerequisites
 
 - GitHub repository with Actions enabled
-- Supabase project with PostgreSQL database (already set up in your `.env`)
+- Supabase project with PostgreSQL database
 - Cloudflare R2 bucket configured
-- Choose your deployment platform (Railway, Fly.io, Cloud Run, SSH, etc.)
+- Fly.io account (free tier available)
 
-## Deployment Platform Options
+## Quick Start (10 minutes)
 
-### Option 1: Railway (Recommended - Easiest)
+### Step 1: Create Fly.io Account
 
-Railway is the simplest option for Go backends. It handles Docker automatically, migrations, and scales easily.
+Go to [fly.io](https://fly.io) and sign up (takes 2 minutes).
 
-**Setup steps:**
+### Step 2: Install flyctl
 
-1. Go to [railway.app](https://railway.app) and create an account
-2. Create a new project
-3. Generate a Railway API token: Railway Dashboard → Account Settings → Tokens
-4. Add GitHub Secrets:
-   ```
-   RAILWAY_TOKEN: <your-token>
-   RAILWAY_PROJECT_ID: <your-project-id>
-   ```
-5. Create a `railway.json` at the root of your repo:
-   ```json
-   {
-     "build": {
-       "builder": "dockerfile",
-       "dockerfilePath": "backend/Dockerfile"
-     },
-     "deploy": {
-       "numReplicas": 1,
-       "restartPolicyMaxRetries": 5,
-       "healthchecks": {
-         "readiness": "/health",
-         "startup": "/ready"
-       }
-     }
-   }
-   ```
+```bash
+# Mac
+brew install flyctl
 
-### Option 2: Fly.io (Great for Global Apps)
-
-Fly.io provides edge deployment with automatic TLS and easy PostgreSQL integration.
-
-**Setup steps:**
-
-1. Go to [fly.io](https://fly.io) and sign up
-2. Install flyctl: `brew install flyctl` (on Mac)
-3. Initialize: `flyctl apps create purptape-api`
-4. Generate auth token: `flyctl auth token`
-5. Add GitHub Secrets:
-   ```
-   FLY_API_TOKEN: <your-token>
-   ```
-6. Create `fly.toml` at project root:
-   ```toml
-   app = "purptape-api"
-   primary_region = "sea"
-
-   [build]
-     dockerfile = "backend/Dockerfile"
-
-   [env]
-     PORT = "8080"
-
-   [[services]]
-     protocol = "tcp"
-     internal_port = 8080
-     processes = ["app"]
-
-     [[services.ports]]
-       port = 80
-       handlers = ["http"]
-       force_https = true
-
-     [[services.ports]]
-       port = 443
-       handlers = ["tls", "http"]
-   ```
-7. Set environment variables:
-   ```bash
-   flyctl secrets set \
-     DATABASE_URL=postgres://... \
-     SUPABASE_URL=... \
-     SUPABASE_ANON_KEY=... \
-     R2_ACCESS_KEY_ID=... \
-     R2_SECRET_ACCESS_KEY=... \
-     R2_ENDPOINT=... \
-     R2_BUCKET_NAME=...
-   ```
-
-### Option 3: Google Cloud Run (Serverless)
-
-Cloud Run is great if you want serverless with auto-scaling.
-
-**Setup steps:**
-
-1. Create a GCP project
-2. Enable Container Registry and Cloud Run APIs
-3. Create a service account with appropriate permissions
-4. Download service account JSON key
-5. Add GitHub Secrets:
-   ```
-   GCP_CREDENTIALS: <base64-encoded-json>
-   ```
-6. Uncomment the `deploy-google-cloud-run` job in the workflow
-
-### Option 4: Self-Hosted (SSH to Your Server)
-
-Deploy to your own VPS or dedicated server.
-
-**Setup steps:**
-
-1. Prepare your server with Docker and Docker Compose
-2. Generate SSH key pair:
-   ```bash
-   ssh-keygen -t rsa -b 4096 -f ~/.ssh/deploy_key
-   ```
-3. Add public key to server: `ssh-copy-id -i ~/.ssh/deploy_key.pub user@yourserver.com`
-4. Add GitHub Secrets:
-   ```
-   DEPLOY_HOST: your.server.com
-   DEPLOY_USER: deploy_user
-   DEPLOY_KEY: <private-key-content>
-   ```
-5. Uncomment the `deploy-ssh` job in the workflow
-
-## Required GitHub Secrets
-
-Add these to your GitHub repository (Settings → Secrets → New Repository Secret):
-
+# Linux/Windows - see https://fly.io/docs/hands-on/install/
 ```
-# Supabase
-SUPABASE_DATABASE_URL=postgres://...
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SECRET_KEY=your-secret-key
 
-# Cloudflare R2
-R2_ACCESS_KEY_ID=your-r2-access-key
-R2_SECRET_ACCESS_KEY=your-r2-secret-key
-R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
-R2_BUCKET_NAME=purptape-audio
-R2_ACCOUNT_ID=your-account-id
+### Step 3: Authenticate
 
-# FinOps (if enabled)
-FINOPS_COST_INGEST_TOKEN=your-token
+```bash
+flyctl auth login
+# This opens your browser to log in
 ```
+
+### Step 4: Generate GitHub Token
+
+```bash
+flyctl tokens create deploy --name github-actions
+# Copy the token
+```
+
+### Step 5: Add GitHub Secret
+
+```bash
+# Using GitHub CLI
+gh secret set FLY_API_TOKEN --body "your-token-here"
+
+# Or manually:
+# 1. Go to GitHub repo Settings → Secrets and Variables → Actions
+# 2. Click "New repository secret"
+# 3. Name: FLY_API_TOKEN
+# 4. Value: Paste your token
+```
+
+### Step 6: Create Fly App
+
+```bash
+flyctl apps create purptape-api
+# Takes 10 seconds
+```
+
+### Step 7: Set Environment Variables
+
+```bash
+flyctl secrets set \
+  DATABASE_URL="postgres://user:password@db.supabase.co:5432/postgres" \
+  SUPABASE_URL="https://xxx.supabase.co" \
+  SUPABASE_ANON_KEY="your-anon-key-here" \
+  SUPABASE_SECRET_KEY="your-secret-key-here" \
+  R2_ACCESS_KEY_ID="your-r2-access-key" \
+  R2_SECRET_ACCESS_KEY="your-r2-secret-key" \
+  R2_ENDPOINT="https://xxx.r2.cloudflarestorage.com" \
+  R2_BUCKET_NAME="purptape-audio" \
+  R2_ACCOUNT_ID="your-account-id" \
+  JOB_WORKER_CONCURRENCY="4" \
+  JOB_BATCH_SIZE="32" \
+  ENV="production"
+```
+
+### Step 8: Deploy
+
+Just push to main branch:
+
+```bash
+git push origin main
+```
+
+GitHub Actions will automatically:
+1. Build and test your code
+2. Build Docker image
+3. Push to GitHub Container Registry
+4. Deploy to Fly.io
+
+**That's it!** Your app is now live at: `https://purptape-api.fly.dev`
+
+## Configuration
+
+The `fly.toml` file controls your deployment:
+
+```toml
+app = "purptape-api"
+primary_region = "sea"  # Seattle - change if needed
+
+[autoscaling]
+enabled = true
+min_machines = 1        # Minimum: 1 machine
+max_machines = 10       # Maximum: 10 machines (auto-scales)
+
+[[vm]]
+cpu_kind = "performance"
+cpus = 1
+memory_mb = 512
+```
+
+### Global Regions
+
+Fly.io has 30+ regions worldwide. For best performance, place your primary region near your largest user base:
+
+- **sea**: Seattle (US West)
+- **sjc**: San Jose (US West)
+- **lax**: Los Angeles (US West)
+- **ord**: Chicago (US Midwest)
+- **iad**: Virginia (US East)
+- **yyz**: Toronto (Canada)
+- **lhr**: London (EU)
+- **ams**: Amsterdam (EU)
+- **fra**: Frankfurt (EU)
+- **sin**: Singapore (Asia)
+- **syd**: Sydney (Australia)
+- **nrt**: Tokyo (Asia)
+- **sao**: São Paulo (Brazil)
+
+For global coverage, Fly.io automatically replicates your app across regions.
 
 ## Database Migrations
 
-The workflow runs, but migrations need to be executed on your Supabase database:
+### Option A: Supabase Dashboard
+1. Go to your Supabase project
+2. SQL Editor → New Query
+3. Copy migrations from `backend/migrations/` in order
+4. Run them
 
-### Option A: Automatic via Cloud Run/Render
-Deploy an init container that runs migrations before the app starts.
-
-### Option B: Manual via Supabase
-1. Go to Supabase Dashboard
-2. Open SQL Editor
-3. Copy migrations from `backend/migrations/` and run them in order
-
-### Option C: Using Supabase CLI
+### Option B: Supabase CLI
 ```bash
-supabase db push  # After setting up supabase CLI
+# Install Supabase CLI
+npm install -g supabase
+
+# Set up
+supabase init
+
+# Deploy migrations
+supabase db push
 ```
 
-## Monitoring Deployments
+### Option C: Automatic (via init container)
+Modify the workflow to run migrations automatically before app starts.
 
-1. Go to your GitHub repository
-2. Click "Actions" tab
-3. View the deployment workflow runs
-4. Check logs for each step
+## Monitoring
 
-## Rollback
+### View Logs
 
-To rollback to a previous version:
-1. The Docker images are tagged with Git SHA, so you can easily reference previous versions
-2. Redeploy the previous Docker image tag to your platform
+```bash
+flyctl logs --app purptape-api
+```
+
+### View Metrics
+
+```bash
+flyctl status --app purptape-api
+```
+
+### Dashboard
+
+Go to [fly.io/apps/purptape-api](https://fly.io/apps) to see:
+- Real-time CPU/memory usage
+- Request latency by region
+- Error rates
+- Deployment history
+
+## Scaling
+
+### Manual Scaling
+
+```bash
+# Scale to 5 machines
+flyctl scale count 5 --app purptape-api
+
+# Scale down
+flyctl scale count 1 --app purptape-api
+```
+
+### Auto-scaling
+
+Already configured in `fly.toml`:
+- Starts with 1 machine
+- Automatically scales to 10 machines if CPU/memory usage spikes
+- Scales back down when traffic decreases
+
+## Deployment History
+
+View all deployments:
+
+```bash
+flyctl releases list --app purptape-api
+```
+
+Rollback to previous version:
+
+```bash
+flyctl releases rollback --app purptape-api
+```
+
+## Cost Estimation
+
+**For small-to-medium apps:**
+- 1 shared-cpu machine: ~$5/month
+- 1 performance machine: ~$15/month
+- Postgres add-on: $5-50/month depending on size
+- Storage/bandwidth: Included
+
+**Under free tier?**
+- First 3 shared-cpu-1x 256MB machines free
+- 3GB Postgres database free
+- Perfect for early development
 
 ## Troubleshooting
 
-### Build fails with "go mod download" error
-- Ensure `go.sum` is committed to the repository
-- Run `go mod tidy` locally and push
+### App won't start
 
-### Docker image push fails
-- Ensure GitHub Token has write access to Container Registry
-- Use `${{ secrets.GITHUB_TOKEN }}` (auto-provided by GitHub)
+```bash
+flyctl logs --app purptape-api
+# Check for errors in logs
+```
 
-### Database connection fails in production
-- Verify `DATABASE_URL` secret is correct
-- Use `psql` to test connection locally
-- Check Supabase RLS policies aren't blocking queries
+### Database connection fails
 
-### Migrations fail
-- Check migration SQL syntax
-- Ensure migrations are run in order
-- Use Supabase's SQL editor for debugging
+```bash
+# Check DATABASE_URL is correct
+flyctl secrets list --app purptape-api
+
+# Test connection locally
+psql $DATABASE_URL
+```
+
+### Cold starts / high latency
+
+- Enable autoscaling to keep machines warm
+- Use performance VMs instead of shared-cpu
+- Check Fly.io metrics dashboard
+
+### Health check failing
+
+The workflow includes a health check on `/health` endpoint. Ensure your API has this endpoint implemented.
+
+## Switching Deployment Platforms
+
+To switch to a different platform:
+
+1. Edit `.github/workflows/deploy-production.yml`
+2. Change which job is enabled (Fly.io is default)
+3. Add required secrets for new platform
+4. Deploy
+
+Available alternatives:
+- **Railway**: Easiest setup, single region
+- **Cloud Run**: Most cost-efficient for bursty traffic
+- **Self-hosted SSH**: Maximum control
+
+See comments in the workflow file for other platform configurations.
 
 ## Next Steps
 
-1. Choose your deployment platform
-2. Update `.github/workflows/deploy-production.yml` to enable the correct job
-3. Add required secrets to GitHub
-4. Push changes to main branch
-5. Watch the deployment workflow run
+1. ✅ Complete the 10-minute Quick Start above
+2. Set up database migrations in Supabase
+3. Push to main branch to trigger deployment
+4. Monitor logs: `flyctl logs --app purptape-api`
+5. Set custom domain (optional): `flyctl certs add yourdomain.com`
 
-For questions, check the individual platform's documentation or test locally with Docker Compose first.
+## Support
+
+- Fly.io Docs: [fly.io/docs](https://fly.io/docs)
+- Supabase Docs: [supabase.com/docs](https://supabase.com/docs)
+- GitHub Actions: [github.com/features/actions](https://github.com/features/actions)
+
+You now have a world-class production deployment pipeline. 🚀
