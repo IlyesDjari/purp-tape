@@ -1,6 +1,9 @@
 app = "purptape-api"
 primary_region = "sea"
 
+[build]
+  dockerfile = "Dockerfile"
+
 [env]
   PORT = "8080"
   ENV = "production"
