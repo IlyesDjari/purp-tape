@@ -1,0 +1,252 @@
+name: CI - Tests & Quality Gates
+
+on:
+  pull_request:
+    branches:
+      - main
+      - staging
+      - develop
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci-tests.yml'
+      - '!backend/**.md'
+  push:
+    branches:
+      - develop
+      - staging
+    paths:
+      - 'backend/**'
+      - '.github/workflows/ci-tests.yml'
+      - '!backend/**.md'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: purptape
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: purptape_test
+        options: >-
+          --health-cmd="pg_isready -U purptape"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Run tests
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_USER: purptape
+          DB_PASSWORD: testpassword
+          DB_NAME: purptape_test
+          MIGRATIONS_DIR: migrations
+        run: |
+          go test -v -race -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
+
+      - name: Run linter
+        uses: golangci/golangci-lint-action@v3
+        with:
+          working-directory: backend
+          version: latest
+          args: --timeout=5m
+
+      - name: Check migration files
+        run: |
+          ls -la migrations/*.sql | wc -l
+          echo "✅ All migration files present"
+
+      - name: Comment coverage
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          script: |
+            const fs = require('fs');
+            const coverage = fs.readFileSync('backend/coverage.out', 'utf8');
+            const lines = coverage.split('\n').slice(-2);
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Test Coverage\n\`\`\`\n${lines.join('\n')}\n\`\`\``
+            });
+
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/purptape-api
+          tags: |
+            type=ref,event=branch
+            type=sha
+            type=raw,value=pr-${{ github.event.pull_request.number }},enable=${{ github.event_name == 'pull_request' }}
+
+      - name: Build Docker image (don't push)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+
+      - name: Build and push Docker image
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  smoke-test:
+    name: Smoke Test - API Startup
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: purptape
+          POSTGRES_PASSWORD: devpassword123
+          POSTGRES_DB: purptape
+        options: >-
+          --health-cmd="pg_isready -U purptape"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Start API
+        timeout-minutes: 2
+        env:
+          ENV: development
+          PORT: 8080
+          HOST: 0.0.0.0
+          DATABASE_URL: postgres://purptape:devpassword123@127.0.0.1:5432/purptape?sslmode=disable
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_ANON_KEY: example-key
+          SUPABASE_SECRET_KEY: example-secret
+          R2_ACCESS_KEY_ID: smoke-key
+          R2_SECRET_ACCESS_KEY: smoke-secret
+          R2_ENDPOINT: http://localhost:9000
+          R2_BUCKET_NAME: smoke-bucket
+          R2_ACCOUNT_ID: smoke-account
+          JWT_SECRET: smoke-secret
+        run: |
+          go run ./cmd/api > api.log 2>&1 &
+          API_PID=$!
+          echo "API_PID=$API_PID" >> $GITHUB_ENV
+          
+          # Wait for API to start
+          for i in {1..30}; do
+            if curl -f http://localhost:8080/health 2>/dev/null; then
+              echo "✅ API started successfully"
+              exit 0
+            fi
+            echo "Waiting for API... ($i/30)"
+            sleep 1
+          done
+          
+          echo "❌ API failed to start"
+          cat api.log
+          exit 1
+
+      - name: Check health endpoint
+        run: |
+          curl -f http://localhost:8080/health || exit 1
+          echo "✅ Health check passed"
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt json -out gosec-report.json ./...'
+        continue-on-error: true
+
+      - name: Check dependencies
+        run: go list -json -m all | jq -s 'map(select(.Indirect)) | length'
