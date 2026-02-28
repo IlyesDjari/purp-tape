@@ -22,10 +22,10 @@ import (
 )
 
 func main() {
-	// Load environment variables
+	// Load environment variables from .env
 	godotenv.Load()
 
-	// Setup logging
+	// Setup logging with JSON output
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
 	// Load configuration
