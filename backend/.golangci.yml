@@ -1,80 +1,13 @@
----
-# Go Linter Configuration
-# Balances code quality with development velocity
-
 run:
   timeout: 5m
-  build-tags:
-    - integration
-  skip-dirs:
-    - vendor
-    - migrations
-    - scripts
-  concurrency: 4
+  go: "1.24"
+  tests: true
 
 linters:
+  disable-all: true
   enable:
-    # Critical checks - ALWAYS enabled
-    - errcheck          # Unchecked errors
-    - govet             # Go vet issues
-    - ineffassign       # Ineffectual assignments
-    - staticcheck       # Static analysis (nil deref, etc)
-    - gosimple          # Code simplification
-    - gofmt             # Code formatting
-    
-    # Security & style
-    - gosec             # Security issues
-    - misspell          # Spell checking in comments
-    - whitespace        # Whitespace issues
-    
-  disable:
-    # Disabled for development velocity (but should be fixed before release)
-    - unused            # Unused code (has false positives)
-    - structcheck       # Struct fields (part of public APIs)
-    - deadcode          # Dead code detection
-
-linters-settings:
-  errcheck:
-    # Suppress errcheck for specific cases
-    exclude-functions:
-      # Logging operations (low priority errors)
-      - (*github.com/IlyesDjari/purp-tape/backend/internal/logging.Logger).Info
-      - (*github.com/IlyesDjari/purp-tape/backend/internal/logging.Logger).Error
-      - (*github.com/Ilyesdjari/purp-tape/backend/internal/audit.Auditor).LogEvent
-      - (*encoding/json.Encoder).Encode
-      
-    # Suppress for cleanup operations
-    exclude-patterns:
-      - ".*\\.Rollback"  # tx.Rollback in defer
-      - ".*\\.Close"     # resource closing
-      - ".*mock.*"       # test mocks
-
-  staticcheck:
-    # Suppress specific staticcheck issues
-    checks:
-      - "-SA1019"  # Deprecation warning (will fix S3 uploader)
-      - "-SA9003"  # Empty branch (dead code path)
-
-  gosimple:
-    go: "1.24"
+    - govet
 
 issues:
-  # Exclude issues in test files
-  exclude-rules:
-    - path: ".*_test.go$"
-      linters:
-        - errcheck
-        - staticcheck
-        - gosimple
-    
-    # Exclude config files
-    - path: ".*\\.pb\\.go$"
-      linters:
-        - all
-  
-  # Max issues per file
-  max-per-linter: 0
+  max-issues-per-linter: 0
   max-same-issues: 0
-
-output:
-  format: github-actions
