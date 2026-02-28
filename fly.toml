@@ -1,5 +1,5 @@
 app = "purptape-api"
-primary_region = "sjc"
+primary_region = "bru"
 
 [build]
   dockerfile = "Dockerfile"
