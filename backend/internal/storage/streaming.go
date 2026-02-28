@@ -6,7 +6,7 @@ import (
 	"log/slog"
 )
 
-// StreamedFileReader provides efficient streaming of large files [HIGH: File streaming memory optimization]
+// StreamedFileReader provides efficient streaming of large files.
 type StreamedFileReader struct {
 	reader io.ReadCloser
 	log    *slog.Logger
@@ -17,7 +17,7 @@ func NewStreamedFileReader(reader io.ReadCloser, log *slog.Logger) *StreamedFile
 	return &StreamedFileReader{reader: reader, log: log}
 }
 
-// StreamToWriter efficiently streams file content to an output writer with buffering [HIGH FIX]
+// StreamToWriter efficiently streams file content to an output writer with buffering.
 func (sfr *StreamedFileReader) StreamToWriter(ctx context.Context, writer io.Writer, bufferSize int) (int64, error) {
 	// Use a 32KB buffer by default (balance between memory and throughput)
 	if bufferSize <= 0 {

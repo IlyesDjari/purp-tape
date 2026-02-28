@@ -10,7 +10,7 @@ import (
 )
 
 // ShareToken represents a cryptographically secure share link token
-// MEDIUM FIX: Validates share link tokens to prevent enumeration attacks
+// ShareTokenValidator validates share link tokens to prevent enumeration attacks.
 type ShareToken struct {
 	Token     string
 	Hash      string

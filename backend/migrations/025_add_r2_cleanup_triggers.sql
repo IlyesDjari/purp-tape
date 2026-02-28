@@ -1,4 +1,4 @@
--- Migration: Add R2 file cleanup on delete [CRITICAL FIX]
+-- Migration: Add R2 file cleanup on delete
 -- Automatically queues cleanup jobs when files are deleted
 -- This prevents orphaned files from accumulating storage costs
 

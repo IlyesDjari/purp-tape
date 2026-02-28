@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// ResponseWriter wrapper for tracking status codes [MEDIUM: Request metrics]
+// ResponseWriter wrapper for tracking HTTP status codes.
 type ResponseWriter struct {
 	http.ResponseWriter
 	statusCode int
@@ -26,7 +26,7 @@ func (rw *ResponseWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
-// RequestMetricsMiddleware tracks request metrics [MEDIUM: Observability/monitoring]
+// RequestMetricsMiddleware tracks request metrics for observability.
 func RequestMetricsMiddleware(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func RequestMetricsMiddleware(log *slog.Logger) func(http.Handler) http.Handler 
 	}
 }
 
-// RecoveryMiddleware recovers from panics [MEDIUM: Error handling, observability]
+// RecoveryMiddleware recovers from panics and logs errors.
 func RecoveryMiddleware(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

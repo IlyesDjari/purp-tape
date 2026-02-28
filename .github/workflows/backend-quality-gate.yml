@@ -1,0 +1,64 @@
+name: Backend Quality Gate
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-quality-gate.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-quality-gate.yml'
+
+jobs:
+  migration-and-build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: purptape
+          POSTGRES_PASSWORD: devpassword123
+          POSTGRES_DB: purptape
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U purptape"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Replay all migrations on clean DB
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_USER: purptape
+          DB_PASSWORD: devpassword123
+          DB_NAME: purptape
+          MIGRATIONS_DIR: migrations
+        run: ./scripts/check_migrations.sh
+
+      - name: Build + test backend
+        run: go test ./...

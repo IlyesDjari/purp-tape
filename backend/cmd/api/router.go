@@ -6,11 +6,15 @@ import (
 
 	"github.com/IlyesDjari/purp-tape/backend/internal/audit"
 	"github.com/IlyesDjari/purp-tape/backend/internal/db"
+	"github.com/IlyesDjari/purp-tape/backend/internal/graphql"
 	"github.com/IlyesDjari/purp-tape/backend/internal/handlers"
+	"github.com/IlyesDjari/purp-tape/backend/internal/notifications"
 	"github.com/IlyesDjari/purp-tape/backend/internal/storage"
 )
 
 type appHandlers struct {
+	OpsConsole          http.HandlerFunc
+	OpsEndpointCatalog  http.HandlerFunc
 	health        *handlers.HealthHandlers
 	project       *handlers.ProjectHandlers
 	track         *handlers.TrackHandlers
@@ -25,12 +29,23 @@ type appHandlers struct {
 	analytics     *handlers.AnalyticsHandlers
 	search        *handlers.SearchHandlers
 	finops        *handlers.FinOpsHandlers
+	notifications *handlers.NotificationHandlers
+	graphql       *graphql.Resolver
 }
 
-func newAppHandlers(database *db.Database, r2Client *storage.R2Client, log *slog.Logger) appHandlers {
+func newAppHandlers(
+	database *db.Database,
+	r2Client *storage.R2Client,
+	notifSvc *notifications.NotificationService,
+	pushSvc *notifications.PushNotificationService,
+	prefsSvc *notifications.PreferencesService,
+	log *slog.Logger,
+) appHandlers {
 	auditLogger := audit.NewLogger(database, log)
 
 	return appHandlers{
+		OpsConsole:          handlers.OpsConsole,
+		OpsEndpointCatalog:  handlers.OpsEndpointCatalog,
 		health:        handlers.NewHealthHandlers(database, r2Client, log),
 		project:       handlers.NewProjectHandlers(database, log),
 		track:         handlers.NewTrackHandlers(database, r2Client, log),
@@ -45,6 +60,8 @@ func newAppHandlers(database *db.Database, r2Client *storage.R2Client, log *slog
 		analytics:     handlers.NewAnalyticsHandlers(database, log),
 		search:        handlers.NewSearchHandlers(database, log),
 		finops:        handlers.NewFinOpsHandlers(database, log),
+		notifications: handlers.NewNotificationHandlers(database, notifSvc, pushSvc, prefsSvc, log),
+		graphql:       graphql.NewResolver(database, notifSvc, pushSvc, prefsSvc, log),
 	}
 }
 
@@ -54,6 +71,8 @@ func registerRoutes(mux *http.ServeMux, handlers appHandlers, withAuth func(http
 }
 
 func registerPublicRoutes(mux *http.ServeMux, handlers appHandlers) {
+	mux.HandleFunc("GET /ops", handlers.OpsConsole)
+	mux.HandleFunc("GET /ops/endpoints", handlers.OpsEndpointCatalog)
 	mux.HandleFunc("GET /health", handlers.health.GetHealth)
 	mux.HandleFunc("GET /health/deep", handlers.health.GetDeepHealth)
 	mux.HandleFunc("GET /readiness", handlers.health.GetReadiness)
@@ -67,6 +86,10 @@ func registerPublicRoutes(mux *http.ServeMux, handlers appHandlers) {
 	mux.HandleFunc("POST /webhooks/revenuecat", handlers.payment.RevenueCatWebhook)
 	mux.HandleFunc("GET /pricing/tiers", handlers.payment.GetPricingTiers)
 	mux.HandleFunc("POST /finops/cost-events", handlers.finops.IngestCostEvent)
+	
+	// GraphQL endpoint (public, but auth is checked in resolvers)
+	mux.HandleFunc("POST /graphql", handlers.graphql.GraphQLHandler)
+	mux.HandleFunc("GET /graphql", handlers.graphql.GraphQLHandler)
 }
 
 func registerProtectedRoutes(mux *http.ServeMux, handlers appHandlers, withAuth func(http.HandlerFunc) http.HandlerFunc) {
@@ -127,4 +150,12 @@ func registerProtectedRoutes(mux *http.ServeMux, handlers appHandlers, withAuth 
 	mux.HandleFunc("GET /compliance/privacy-settings", withAuth(handlers.compliance.GetPrivacySettings))
 	mux.HandleFunc("PATCH /compliance/privacy-settings", withAuth(handlers.compliance.UpdatePrivacySettings))
 	mux.HandleFunc("GET /finops/summary", withAuth(handlers.finops.GetSummary))
+	
+	// Notification endpoints (REST + GraphQL available)
+	mux.HandleFunc("GET /notifications", withAuth(handlers.notifications.GetNotifications))
+	mux.HandleFunc("POST /notifications/device-token", withAuth(handlers.notifications.RegisterDeviceToken))
+	mux.HandleFunc("PATCH /notifications/preferences", withAuth(handlers.notifications.UpdatePreferences))
+	mux.HandleFunc("POST /notifications/{notification_id}/read", withAuth(handlers.notifications.MarkAsRead))
+	mux.HandleFunc("POST /notifications/read-all", withAuth(handlers.notifications.MarkAllAsRead))
+	mux.HandleFunc("GET /notifications/unread-count", withAuth(handlers.notifications.GetUnreadCount))
 }

@@ -1,0 +1,531 @@
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+scalar DateTime
+scalar UUID
+scalar JSON
+
+# ============================================================================
+# QUERIES
+# ============================================================================
+
+type Query {
+  # User queries
+  me: User!
+  user(id: UUID!): User
+  searchUsers(query: String!, limit: Int): [User!]!
+  
+  # Project queries
+  projects(limit: Int, offset: Int): ProjectConnection!
+  project(id: UUID!): Project
+  projectsByUser(userId: UUID!, limit: Int, offset: Int): ProjectConnection!
+  
+  # Track queries
+  tracks(projectId: UUID!, limit: Int, offset: Int): TrackConnection!
+  track(id: UUID!): Track
+  trackVersions(trackId: UUID!, limit: Int, offset: Int): TrackVersionConnection!
+  
+  # Search
+  search(query: String!, type: SearchType, limit: Int): SearchResults!
+  trending(limit: Int): [Project!]!
+  discover(limit: Int, offset: Int): [Project!]!
+  
+  # Notifications
+  notifications(limit: Int, offset: Int): NotificationConnection!
+  unreadNotificationCount: Int!
+  
+  # Analytics
+  projectAnalytics(projectId: UUID!): ProjectAnalytics!
+  userStats: UserStats!
+  
+  # Subscriptions & Pricing
+  subscriptions(limit: Int): [Subscription!]!
+  currentSubscription: Subscription
+  
+  # Sharing
+  sharedProject(hash: String!): SharedProject
+  
+  # Cost analytics (for premium users)
+  costSummary: CostSummary
+  costHistory(months: Int): [MonthlyCost!]!
+}
+
+# ============================================================================
+# MUTATIONS
+# ============================================================================
+
+type Mutation {
+  # Project mutations
+  createProject(input: CreateProjectInput!): Project!
+  updateProject(id: UUID!, input: UpdateProjectInput!): Project!
+  deleteProject(id: UUID!): Boolean!
+  duplicateProject(id: UUID!): Project!
+  
+  # Track mutations
+  createTrack(input: CreateTrackInput!): Track!
+  uploadTrackVersion(trackId: UUID!, input: UploadTrackVersionInput!): TrackVersion!
+  deleteTrack(id: UUID!): Boolean!
+  rollbackTrackVersion(trackId: UUID!, versionId: UUID!): Track!
+  
+  # Collaboration
+  addCollaborator(projectId: UUID!, userId: UUID!, role: CollaboratorRole!): Collaborator!
+  updateCollaboratorRole(projectId: UUID!, userId: UUID!, role: CollaboratorRole!): Collaborator!
+  removeCollaborator(projectId: UUID!, userId: UUID!): Boolean!
+  updateProjectPrivacy(projectId: UUID!, isPrivate: Boolean!): Project!
+  
+  # Sharing
+  generateShareLink(projectId: UUID!, input: GenerateShareLinkInput!): ShareLink!
+  revokeShareLink(projectId: UUID!, hash: String!): Boolean!
+  verifySharePassword(hash: String!, password: String!): ShareVerification!
+  
+  # Comments & Likes
+  addComment(trackVersionId: UUID!, content: String!): Comment!
+  deleteComment(commentId: UUID!): Boolean!
+  likeTrack(trackId: UUID!): Like!
+  unlikeTrack(trackId: UUID!): Boolean!
+  
+  # Social
+  followUser(userId: UUID!): Boolean!
+  unfollowUser(userId: UUID!): Boolean!
+  
+  # Notifications
+  markNotificationAsRead(notificationId: UUID!): Notification!
+  markAllNotificationsAsRead: Boolean!
+  registerDeviceToken(token: String!, platform: NotificationPlatform!): DeviceToken!
+  updateNotificationPreferences(input: NotificationPreferencesInput!): NotificationPreferences!
+  
+  # Subscriptions & Checkout
+  createCheckoutSession(tierId: String!): CheckoutSession!
+  
+  # Settings
+  updatePrivacySettings(input: PrivacySettingsInput!): PrivacySettings!
+  
+  # Offline (optional)
+  initiateOfflineDownload(projectId: UUID!): OfflineDownload!
+  deleteOfflineDownload(downloadId: UUID!): Boolean!
+}
+
+# ============================================================================
+# SUBSCRIPTIONS (Real-time)
+# ============================================================================
+
+type Subscription {
+  # Real-time notifications
+  notificationCreated(userId: UUID!): Notification!
+  
+  # Collaborative editing
+  projectUpdated(projectId: UUID!): Project!
+  trackUpdated(trackId: UUID!): Track!
+  
+  # Live collaboration presence
+  collaboratorPresence(projectId: UUID!): CollaboratorPresence!
+}
+
+# ============================================================================
+# TYPES
+# ============================================================================
+
+type User {
+  id: UUID!
+  email: String!
+  username: String!
+  avatarUrl: String
+  bio: String
+  followers: Int!
+  following: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  isFollowing: Boolean!
+}
+
+type Project {
+  id: UUID!
+  name: String!
+  description: String
+  owner: User!
+  tracks: [Track!]!
+  isPrivate: Boolean!
+  coverImage: Image
+  collaborators: [Collaborator!]!
+  shareLink: ShareLink
+  analytics: ProjectAnalytics
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+}
+
+type ProjectConnection {
+  edges: [Project!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type Track {
+  id: UUID!
+  name: String!
+  project: Project!
+  currentVersion: TrackVersion!
+  versions: [TrackVersion!]!
+  likes: Int!
+  comments: Int!
+  plays: Int!
+  isLiked: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+}
+
+type TrackConnection {
+  edges: [Track!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type TrackVersion {
+  id: UUID!
+  track: Track!
+  versionNumber: Int!
+  fileUrl: String!
+  fileSizeBytes: Int!
+  durationSeconds: Int!
+  mimeType: String!
+  checksum: String!
+  metadata: JSON
+  createdAt: DateTime!
+  createdBy: User!
+}
+
+type TrackVersionConnection {
+  edges: [TrackVersion!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type Image {
+  id: UUID!
+  url: String!
+  mimeType: String!
+  sizeBytes: Int!
+  createdAt: DateTime!
+}
+
+type Collaborator {
+  id: UUID!
+  user: User!
+  role: CollaboratorRole!
+  invitedAt: DateTime!
+  joinedAt: DateTime
+}
+
+enum CollaboratorRole {
+  OWNER
+  EDITOR
+  COMMENTER
+  VIEWER
+}
+
+type Comment {
+  id: UUID!
+  author: User!
+  content: String!
+  trackVersion: TrackVersion
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Like {
+  id: UUID!
+  user: User!
+  track: Track!
+  createdAt: DateTime!
+}
+
+type ShareLink {
+  id: UUID!
+  project: Project!
+  hash: String!
+  accessLevel: AccessLevel!
+  isPublic: Boolean!
+  isPasswordProtected: Boolean!
+  expiresAt: DateTime
+  revokedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum AccessLevel {
+  VIEWER
+  COMMENTER
+  COLLABORATOR
+}
+
+type SharedProject {
+  id: UUID!
+  name: String!
+  description: String
+  owner: User!
+  tracks: [Track!]!
+  coverImage: Image
+  accessLevel: AccessLevel!
+  isPasswordProtected: Boolean!
+}
+
+type ShareVerification {
+  success: Boolean!
+  accessToken: String
+  expiresAt: DateTime
+}
+
+type Notification {
+  id: UUID!
+  type: NotificationType!
+  actor: User
+  content: String!
+  trackId: UUID
+  projectId: UUID
+  isRead: Boolean!
+  createdAt: DateTime!
+}
+
+type NotificationConnection {
+  edges: [Notification!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+  unreadCount: Int!
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  FOLLOW
+  SHARE
+  MENTION
+  COLLABORATION_INVITE
+}
+
+type DeviceToken {
+  id: UUID!
+  platform: NotificationPlatform!
+  createdAt: DateTime!
+}
+
+enum NotificationPlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
+type NotificationPreferences {
+  pushEnabled: Boolean!
+  pushLikes: Boolean!
+  pushComments: Boolean!
+  pushFollows: Boolean!
+  pushShares: Boolean!
+  pushMentions: Boolean!
+  quietHoursEnabled: Boolean!
+  quietHoursStart: String!
+  quietHoursEnd: String!
+  bundleByType: Boolean!
+  updatedAt: DateTime!
+}
+
+type ProjectAnalytics {
+  trackCount: Int!
+  totalPlays: Int!
+  totalLikes: Int!
+  totalComments: Int!
+  tracksWithAnalytics: [TrackAnalytics!]!
+  topTracks: [Track!]!
+  recentActivity: [ActivityEvent!]!
+}
+
+type TrackAnalytics {
+  track: Track!
+  plays: Int!
+  likes: Int!
+  comments: Int!
+  completionRate: Float!
+}
+
+type ActivityEvent {
+  id: UUID!
+  type: ActivityType!
+  actor: User!
+  description: String!
+  createdAt: DateTime!
+}
+
+enum ActivityType {
+  TRACK_UPLOAD
+  COMMENT_ADDED
+  LIKE_ADDED
+  COLLABORATOR_JOINED
+  TRACK_DOWNLOADED
+}
+
+type UserStats {
+  projects: Int!
+  tracks: Int!
+  followers: Int!
+  following: Int!
+  totalPlays: Int!
+  totalLikes: Int!
+  joinedAt: DateTime!
+}
+
+type Subscription {
+  id: UUID!
+  user: User!
+  tier: SubscriptionTier!
+  isPremium: Boolean!
+  storageQuotaMB: Int!
+  storageUsedMB: Int!
+  renewalDate: DateTime
+  canceledAt: DateTime
+  createdAt: DateTime!
+}
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  PRO_PLUS
+  UNLIMITED
+}
+
+type CheckoutSession {
+  id: String!
+  url: String!
+  expiresAt: DateTime!
+}
+
+type CostSummary {
+  currentMonthCost: Float!
+  projectedMonthlyCost: Float!
+  storageUsedGB: Float!
+  storageCostUSD: Float!
+  estimatedQuotaPercent: Float!
+  budgetStatus: BudgetStatus!
+}
+
+enum BudgetStatus {
+  HEALTHY
+  WARNING
+  CRITICAL
+  EXCEEDED
+}
+
+type MonthlyCost {
+  month: String!
+  storageGb: Float!
+  estimatedCostUsd: Float!
+}
+
+type PrivacySettings {
+  isProfilePublic: Boolean!
+  showProjects: Boolean!
+  allowPublicSharing: Boolean!
+  updatedAt: DateTime!
+}
+
+type OfflineDownload {
+  id: UUID!
+  project: Project!
+  fileSizeBytes: Int!
+  status: DownloadStatus!
+  downloadedAt: DateTime
+}
+
+enum DownloadStatus {
+  PENDING
+  DOWNLOADING
+  COMPLETED
+  FAILED
+  REMOVED
+}
+
+type CollaboratorPresence {
+  userId: UUID!
+  status: PresenceStatus!
+  lastActiveAt: DateTime!
+}
+
+enum PresenceStatus {
+  ONLINE
+  IDLE
+  OFFLINE
+}
+
+type PageInfo {
+  offset: Int!
+  limit: Int!
+  hasMore: Boolean!
+  totalCount: Int!
+}
+
+type SearchResults {
+  users: [User!]!
+  projects: [Project!]!
+  tracks: [Track!]!
+}
+
+enum SearchType {
+  USERS
+  PROJECTS
+  TRACKS
+  ALL
+}
+
+# ============================================================================
+# INPUT TYPES
+# ============================================================================
+
+input CreateProjectInput {
+  name: String!
+  description: String
+}
+
+input UpdateProjectInput {
+  name: String
+  description: String
+  coverImageId: UUID
+}
+
+input CreateTrackInput {
+  projectId: UUID!
+  name: String!
+}
+
+input UploadTrackVersionInput {
+  file: String! # Base64 or URL
+  metadata: JSON
+}
+
+input GenerateShareLinkInput {
+  accessLevel: AccessLevel!
+  expiresAt: DateTime
+  isPublic: Boolean!
+  isPasswordProtected: Boolean
+  password: String
+}
+
+input NotificationPreferencesInput {
+  pushEnabled: Boolean
+  pushLikes: Boolean
+  pushComments: Boolean
+  pushFollows: Boolean
+  pushShares: Boolean
+  pushMentions: Boolean
+  quietHoursEnabled: Boolean
+  quietHoursStart: String
+  quietHoursEnd: String
+  bundleByType: Boolean
+}
+
+input PrivacySettingsInput {
+  isProfilePublic: Boolean
+  showProjects: Boolean
+  allowPublicSharing: Boolean
+}

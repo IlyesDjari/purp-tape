@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-// ValidationError represents an input validation error [MEDIUM: Structured error handling]
+// ValidationError represents an input validation error.
 type ValidationError struct {
 	Field  string
 	Reason string
@@ -34,7 +34,7 @@ func GetUserID(r *http.Request) (string, error) {
 	return userID, nil
 }
 
-// ExtractPaginationParams extracts and validates limit and offset from query string [OPTIMIZED]
+// ExtractPaginationParams extracts and validates limit and offset from query string.
 // Defaults: limit=20, offset=0
 // Max: limit=100
 func ExtractPaginationParams(r *http.Request) (limit, offset int) {

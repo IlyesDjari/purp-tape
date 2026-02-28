@@ -57,7 +57,7 @@ func (h *ProjectHandlers) ListProjects(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// ✅ OPTIMIZED: Single query with pagination
+	// Retrieve paginated projects
 	projects, total, err := h.db.GetUserProjectsPaginated(r.Context(), userID, limit, offset)
 	if err != nil {
 		h.log.Error("failed to get projects", "error", err)

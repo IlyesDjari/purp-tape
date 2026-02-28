@@ -2,7 +2,7 @@
 -- This is CRITICAL for data security - prevents unauthorized access to sensitive data
 
 -- ============================================================================
--- COLLABORATORS TABLE - Add comprehensive RLS policies [CRITICAL FIX]
+-- COLLABORATORS TABLE - Add comprehensive RLS policies
 -- ============================================================================
 
 ALTER TABLE collaborators ENABLE ROW LEVEL SECURITY;
@@ -34,7 +34,7 @@ CREATE POLICY "collaborators_delete_own_project" ON collaborators
   );
 
 -- ============================================================================
--- IMAGES TABLE - Add RLS policies [CRITICAL FIX]
+-- IMAGES TABLE - Add RLS policies
 -- ============================================================================
 
 ALTER TABLE images ENABLE ROW LEVEL SECURITY;
@@ -56,7 +56,7 @@ CREATE POLICY "images_delete_own" ON images
   FOR DELETE USING (auth.uid() = user_id);
 
 -- ============================================================================
--- COMMENTS TABLE - Add RLS policies [CRITICAL FIX]
+-- COMMENTS TABLE - Add RLS policies
 -- ============================================================================
 
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
@@ -105,7 +105,7 @@ CREATE POLICY "comments_update_own" ON comments
   FOR UPDATE USING (auth.uid() = user_id);
 
 -- ============================================================================
--- PLAY_HISTORY TABLE - Add RLS policies [CRITICAL FIX]
+-- PLAY_HISTORY TABLE - Add RLS policies
 -- ============================================================================
 
 ALTER TABLE play_history ENABLE ROW LEVEL SECURITY;

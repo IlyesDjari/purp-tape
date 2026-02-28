@@ -24,7 +24,7 @@
 -- (Track versions -> Offline Downloads relationship)
 
 -- ============================================================================
--- For production: Use soft deletes via deleted_at column [CRITICAL FIX already applied]
+-- For production: Use soft deletes via deleted_at column
 -- This migration documents the relationships
 -- ============================================================================
 

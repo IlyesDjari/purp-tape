@@ -10,7 +10,7 @@ import (
 )
 
 // R2CleanupJob processes orphaned files from deleted projects and tracks
-// MEDIUM FIX: Automatically cleans up R2 objects for soft-deleted items
+// R2CleanupJobRunner automatically cleans up R2 objects for soft-deleted items.
 // Runs hourly, processes deletions older than 30 days to avoid accidental recovery issues
 type R2CleanupJob struct {
 	db     *db.Database

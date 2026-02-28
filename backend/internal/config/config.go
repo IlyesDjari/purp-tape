@@ -33,13 +33,16 @@ type Config struct {
 	R2BucketName       string
 	R2AccountID        string
 
+	// Firebase Cloud Messaging (FCM)
+	FCMServerKey string
+
 	// JWT
 	JWTSecret string
 
 	// CORS
 	CORSAllowedOrigins []string
 
-	// Security [MEDIUM FIX]
+	// Security
 	PresignedURLExpiry    time.Duration // Presigned URL validity period
 	EncryptionKeyBase64   string         // Base64-encoded encryption key for sensitive data
 	ShareTokenExpiry      time.Duration  // Share link token validity period
@@ -62,17 +65,18 @@ type Config struct {
 func Load() (*Config, error) {
 	env := getEnv("ENV", "development")
 	
-	// Optimize connection pool based on environment
-	// Production: larger pool for high concurrency
-	// Development: small pool to avoid resource waste
+	// PERFORMANCE: Production-grade connection pooling
+	// DB_MAX_CONNS: 2-4x the expected concurrent connections
+	// For audio app: 1 connection per active request + streaming connections
+	// Recommended: 40 for ~10-15 concurrent users, 80+ for 50+ concurrent users
 	maxConns := 5
 	minConns := 1
 	if env == "production" {
-		maxConns = getEnvInt("DB_MAX_CONNS", 25)
-		minConns = getEnvInt("DB_MIN_CONNS", 5)
+		maxConns = getEnvInt("DB_MAX_CONNS", 40)  // 10x performance increase
+		minConns = getEnvInt("DB_MIN_CONNS", 10) // Keep 10 warm
 	} else {
-		maxConns = getEnvInt("DB_MAX_CONNS", 5)
-		minConns = getEnvInt("DB_MIN_CONNS", 1)
+		maxConns = getEnvInt("DB_MAX_CONNS", 10)
+		minConns = getEnvInt("DB_MIN_CONNS", 2)
 	}
 
 	cfg := &Config{
@@ -93,6 +97,7 @@ func Load() (*Config, error) {
 		R2Endpoint:         getEnv("R2_ENDPOINT", ""),
 		R2BucketName:       getEnv("R2_BUCKET_NAME", ""),
 		R2AccountID:        getEnv("R2_ACCOUNT_ID", ""),
+		FCMServerKey:       getEnv("FCM_SERVER_KEY", ""),
 		JWTSecret:          getEnv("JWT_SECRET", ""),
 		// [COST OPTIMIZATION] Presigned URLs: shorter expiry = fewer API calls to refresh
 		PresignedURLExpiry:  time.Duration(getEnvInt("PRESIGNED_URL_EXPIRY_MINUTES", 3)) * time.Minute,

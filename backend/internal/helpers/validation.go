@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// ValidateAndParseInt safely parses and validates an integer from query params [MEDIUM: Input validation]
+// ValidateAndParseInt safely parses and validates an integer from query params.
 func ValidateAndParseInt(value string, min, max int) (int, error) {
 	num, err := strconv.Atoi(value)
 	if err != nil {
@@ -18,7 +18,7 @@ func ValidateAndParseInt(value string, min, max int) (int, error) {
 	return num, nil
 }
 
-// ExtractPaginationParamsValidated extracts and validates pagination from query [MEDIUM: Consistent pagination]
+// ExtractPaginationParamsValidated extracts and validates pagination from query.
 func ExtractPaginationParamsValidated(r *http.Request) (limit, offset int) {
 	limit = 20
 	offset = 0
@@ -38,7 +38,7 @@ func ExtractPaginationParamsValidated(r *http.Request) (limit, offset int) {
 	return limit, offset
 }
 
-// ValidateSortField validates a sort field against allowed list [MEDIUM: SQL injection prevention]
+// ValidateSortField validates a sort field against allowed list.
 func ValidateSortField(field string, allowed []string) string {
 	field = strings.TrimSpace(field)
 	for _, a := range allowed {
@@ -49,7 +49,7 @@ func ValidateSortField(field string, allowed []string) string {
 	return allowed[0] // Default to first allowed field
 }
 
-// ExtractSortParams safely extracts sort parameters [MEDIUM: Input validation]
+// ExtractSortParams safely extracts sort parameters.
 func ExtractSortParams(r *http.Request, defaultSort string, allowed []string) (field string, desc bool) {
 	field = defaultSort
 	desc = false
@@ -66,7 +66,7 @@ func ExtractSortParams(r *http.Request, defaultSort string, allowed []string) (f
 	return field, desc
 }
 
-// SanitizeFilename removes unsafe characters from filenames [MEDIUM: File safety]
+// SanitizeFilename removes unsafe characters from filenames.
 func SanitizeFilename(filename string) string {
 	// Remove path separators
 	filename = strings.ReplaceAll(filename, "/", "")
@@ -81,7 +81,7 @@ func SanitizeFilename(filename string) string {
 	return filename
 }
 
-// ValidateUserInput validates user input for safety [MEDIUM: Input validation]
+// ValidateUserInput validates user input for safety.
 type InputValidator struct {
 	Field   string
 	Value   string

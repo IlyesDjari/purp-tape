@@ -12,7 +12,7 @@ import (
 // have been REMOVED. Use GetUserRoleOptimized() instead for single-query role resolution.
 // This saves 66% of database round-trips for access control checks.
 
-// RBACMiddleware enforces role-based access control using DATABASE queries [CRITICAL FIX]
+// RBACMiddleware enforces role-based access control using database queries.
 // NEVER trusts X-User-Role or X-Is-Owner headers - they can be forged
 func RBACMiddleware(database *db.Database, log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -29,7 +29,7 @@ func RBACMiddleware(database *db.Database, log *slog.Logger) func(http.Handler) 
 				return
 			}
 
-			// [CRITICAL FIX] Query database for actual role (NOT headers!)
+			// Query database for actual role (NOT from headers)
 			// NEVER trust X-User-Role or X-Is-Owner headers - they can be forged
 			// Log any attempt to forge role via headers for audit
 			if claimedRole := r.Header.Get("X-User-Role"); claimedRole != "" {
@@ -38,7 +38,7 @@ func RBACMiddleware(database *db.Database, log *slog.Logger) func(http.Handler) 
 					"claimed_role", claimedRole)
 			}
 
-			// [HIGH FIX] Use optimized single-query version instead of 3 queries
+			// Optimized single-query lookup for performance
 			role, err := database.GetUserRoleOptimized(r.Context(), projectID, userID)
 			if err != nil {
 				log.Error("failed to query user role",
@@ -89,7 +89,7 @@ func checkRoleAccess(userRole, requiredRole string) bool {
 	return userLevel >= requiredLevel
 }
 
-// EnforceRole checks if user has minimum required role for operation [CRITICAL FIX]
+// EnforceRole checks if user has minimum required role.
 // Uses role from context (already DB-verified by RBACMiddleware)
 func EnforceRole(requiredRole string, log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -119,7 +119,7 @@ func EnforceRole(requiredRole string, log *slog.Logger) func(http.Handler) http.
 	}
 }
 
-// EnforceOwnership checks if user is the project owner [CRITICAL FIX]
+// EnforceOwnership checks if user is the project owner.
 func EnforceOwnership(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

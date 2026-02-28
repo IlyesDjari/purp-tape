@@ -7,14 +7,14 @@ import (
 	"time"
 )
 
-// InvalidationEvent represents a cache invalidation event [MEDIUM: Cache invalidation tracking]
+// InvalidationEvent represents a cache invalidation event.
 type InvalidationEvent struct {
 	Key       string
 	Type      string // "update", "delete", "refresh"
 	Timestamp time.Time
 }
 
-// CacheInvalidator manages cache invalidation [MEDIUM: Cache invalidation]
+// CacheInvalidator manages cache invalidation operations.
 type CacheInvalidator struct {
 	subscribers map[string][]chan InvalidationEvent
 	mu          sync.RWMutex
@@ -126,7 +126,7 @@ func matchesPattern(key, pattern string) bool {
 	return false
 }
 
-// CacheMetrics tracks cache performance [MEDIUM: Monitoring]
+// CacheMetrics tracks cache performance.
 type CacheMetrics struct {
 	Hits        int64
 	Misses      int64

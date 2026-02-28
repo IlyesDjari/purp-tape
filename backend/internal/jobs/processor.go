@@ -17,7 +17,7 @@ import (
 	"github.com/IlyesDjari/purp-tape/backend/internal/storage"
 )
 
-// JobProcessor handles background jobs [CRITICAL FIX: R2 cleanup]
+// JobProcessor handles background jobs.
 type JobProcessor struct {
 	db  *db.Database
 	r2  *storage.R2Client
@@ -120,7 +120,7 @@ func (jp *JobProcessor) processBatch(ctx context.Context) (int, error) {
 	return len(jobs), nil
 }
 
-// processJob handles individual job based on type [CRITICAL FIX: Proper job handling]
+// processJob handles individual job based on type.
 func (jp *JobProcessor) processJob(ctx context.Context, job *db.JobData) error {
 	jp.log.Info("processing job", "job_id", job.ID, "job_type", job.JobType)
 
@@ -186,7 +186,7 @@ func isExpensiveFinOpsJob(jobType string) bool {
 	}
 }
 
-// cleanupR2File removes files from R2 storage [CRITICAL FIX: R2 cleanup implementation]
+// cleanupR2File removes files from R2 storage.
 func (jp *JobProcessor) cleanupR2File(ctx context.Context, jobDataJSON json.RawMessage) (interface{}, error) {
 	var data map[string]interface{}
 	if err := json.Unmarshal(jobDataJSON, &data); err != nil {

@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-// APIError represents a structured API error [MEDIUM: Better error handling]
+// APIError represents a structured API error.
 type APIError struct {
 	Code       string      `json:"code"`
 	Message    string      `json:"message"`
@@ -102,7 +102,7 @@ func QuotaExceededError(quotaType string, used, limit int64) *APIError {
 	}
 }
 
-// LogAPIError logs an API error with context [MEDIUM: Better logging]
+// LogAPIError logs an API error with context.
 func LogAPIError(log *slog.Logger, err *APIError, context ...interface{}) {
 	attrs := []interface{}{
 		"error_code", err.Code,

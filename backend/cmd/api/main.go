@@ -17,6 +17,7 @@ import (
 	"github.com/IlyesDjari/purp-tape/backend/internal/db"
 	"github.com/IlyesDjari/purp-tape/backend/internal/jobs"
 	"github.com/IlyesDjari/purp-tape/backend/internal/middleware"
+	"github.com/IlyesDjari/purp-tape/backend/internal/notifications"
 	"github.com/IlyesDjari/purp-tape/backend/internal/storage"
 )
 
@@ -69,7 +70,12 @@ func main() {
 	// Initialize auth validator
 	authValidator := auth.NewValidator(cfg.SupabaseURL, cfg.SupabaseAnonKey, cfg.SupabaseSecretKey)
 
-	appHandlers := newAppHandlers(database, r2Client, log)
+	// Initialize notification services
+	pushNotifSvc := notifications.NewPushNotificationService(database, cfg.FCMServerKey, log)
+	prefsSvc := notifications.NewPreferencesService(database, log)
+	notifSvc := notifications.NewNotificationService(database, pushNotifSvc, prefsSvc, log)
+
+	appHandlers := newAppHandlers(database, r2Client, notifSvc, pushNotifSvc, prefsSvc, log)
 	jobProcessor := jobs.NewJobProcessor(database, r2Client, log, cfg.JobWorkerConcurrency, cfg.JobBatchSize)
 	jobCtx, stopJobs := context.WithCancel(context.Background())
 	defer stopJobs()

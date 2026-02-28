@@ -1,4 +1,4 @@
--- Migration: Add soft delete support with deleted_at columns [CRITICAL FIX]
+-- Migration: Add soft delete support with deleted_at columns
 -- Soft deletes allow data recovery and maintain audit trails
 
 -- ============================================================================

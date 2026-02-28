@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// validateObjectKey validates R2 object key to prevent directory traversal and enforce user scope [CRITICAL FIX]
+// validateObjectKey validates R2 object key to prevent directory traversal and enforce user scope.
 func (rc *R2Client) validateObjectKey(userID, objectKey string) error {
 	// 1. Prevent directory traversal attacks
 	if strings.Contains(objectKey, "..") {

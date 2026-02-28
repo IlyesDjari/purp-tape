@@ -11,7 +11,7 @@ import (
 	"github.com/IlyesDjari/purp-tape/backend/internal/helpers"
 )
 
-// ComplianceHandlers handles GDPR and privacy requests [MEDIUM: Compliance]
+// ComplianceHandlers handles GDPR and privacy-related requests.
 type ComplianceHandlers struct {
 	db    *db.Database
 	audit *audit.Logger
@@ -23,7 +23,7 @@ func NewComplianceHandlers(database *db.Database, auditLogger *audit.Logger, log
 	return &ComplianceHandlers{db: database, audit: auditLogger, log: log}
 }
 
-// ExportUserData handles GET /compliance/data-export [MEDIUM: GDPR compliance]
+// ExportUserData exports user data for GDPR compliance.
 // Returns all user's personal data in JSON format
 func (h *ComplianceHandlers) ExportUserData(w http.ResponseWriter, r *http.Request) {
 	userID, err := helpers.GetUserID(r)
@@ -85,7 +85,7 @@ func (h *ComplianceHandlers) ExportUserData(w http.ResponseWriter, r *http.Reque
 	h.log.Info("data export completed", "user_id", userID)
 }
 
-// DeleteUserData handles DELETE /compliance/delete-account [MEDIUM: GDPR Right to be Forgotten]
+// DeleteUserData deletes user account for GDPR Right to be Forgotten.
 // Permanently deletes all user data
 func (h *ComplianceHandlers) DeleteUserData(w http.ResponseWriter, r *http.Request) {
 	userID, err := helpers.GetUserID(r)
@@ -149,7 +149,7 @@ func (h *ComplianceHandlers) DeleteUserData(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GetPrivacySettings handles GET /compliance/privacy-settings [MEDIUM: Privacy controls]
+// GetPrivacySettings retrieves user privacy settings.
 func (h *ComplianceHandlers) GetPrivacySettings(w http.ResponseWriter, r *http.Request) {
 	userID, err := helpers.GetUserID(r)
 	if err != nil {

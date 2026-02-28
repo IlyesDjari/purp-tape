@@ -60,7 +60,7 @@ func NewValidator(supabaseURL, anonKey, secretKey string) *Validator {
 	}
 }
 
-// ValidateToken validates a Bearer token with SIGNATURE VERIFICATION [CRITICAL FIX]
+// ValidateToken validates a Bearer token with signature verification.
 func (v *Validator) ValidateToken(authHeader string) (*SupabaseJWT, error) {
 	// Extract the token from the Authorization header
 	parts := strings.Split(authHeader, " ")
@@ -72,7 +72,7 @@ func (v *Validator) ValidateToken(authHeader string) (*SupabaseJWT, error) {
 
 	// Parse with signature verification (NOT just decode!)
 	token, err := jwt.ParseWithClaims(tokenString, &SupabaseJWT{}, func(token *jwt.Token) (interface{}, error) {
-		// [CRITICAL FIX] Explicitly reject 'none' algorithm
+		// Explicitly reject 'none' algorithm (security risk)
 		if alg, ok := token.Header["alg"].(string); ok && alg == "none" {
 			return nil, fmt.Errorf("token algorithm 'none' is not allowed")
 		}

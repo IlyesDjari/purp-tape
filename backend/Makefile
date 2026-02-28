@@ -21,13 +21,39 @@ docker-down:
 docker-build:
 	docker compose build
 
-# Run tests
+# Run all tests
 test:
-	go test -v ./...
+	go test -v -race ./...
+
+# Run tests with coverage report
+test-coverage:
+	go test -v -race -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Run only unit tests (no integration tests)
+test-unit:
+	go test -v -race ./internal/...
+
+# Run specific package tests
+test-auth:
+	go test -v -race ./internal/auth/...
+
+test-validation:
+	go test -v -race ./internal/validation/...
+
+test-encryption:
+	go test -v -race ./internal/encryption/...
+
+test-errors:
+	go test -v -race ./internal/errors/...
+
+test-middleware:
+	go test -v -race ./internal/middleware/...
 
 # Generate test coverage
 coverage:
-	go test -v -coverprofile=coverage.out ./...
+	go test -v -race -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out
 
 # Lint code (requires golangci-lint)

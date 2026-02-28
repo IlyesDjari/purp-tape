@@ -4,9 +4,11 @@ import (
 	"context"
 	"net/http"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
-// RequestContext contains request metadata for logging and auditing [MEDIUM: Better logging context]
+// RequestContext contains request metadata for logging and auditing.
 type RequestContext struct {
 	RequestID  string
 	UserID     string
@@ -17,7 +19,7 @@ type RequestContext struct {
 	StatusCode int
 }
 
-// ContextMiddleware extracts request context [MEDIUM: Request context tracking]
+// ContextMiddleware extracts request context for logging.
 func ContextMiddleware(log interface{}) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -90,8 +92,7 @@ func getIPAddress(r *http.Request) string {
 	return "unknown"
 }
 
-// generateRequestID generates a unique request ID
+// generateRequestID generates a unique request ID using UUID v4
 func generateRequestID() string {
-	return ""
-	// TODO: Implement proper request ID generation (UUID or similar)
+	return uuid.New().String()
 }

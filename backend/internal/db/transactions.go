@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Tx wraps a database transaction [MEDIUM: Transaction handling]
+// Tx wraps a database transaction for atomic operations.
 type Tx struct {
 	tx pgx.Tx
 }
@@ -56,7 +56,7 @@ func (t *Tx) Query(ctx context.Context, query string, args ...interface{}) (pgx.
 	return t.tx.Query(ctx, query, args...)
 }
 
-// BatchCreateProjects creates multiple projects in a single transaction [MEDIUM: Batch operations]
+// BatchCreateProjects creates multiple projects in a single transaction.
 func (db *Database) BatchCreateProjects(ctx context.Context, projects []interface{}) error {
 	return db.WithTx(ctx, func(tx *Tx) error {
 		query := `INSERT INTO projects (id, user_id, name, description, created_at, updated_at)

@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// RateLimitEntry tracks request count and window start time [HIGH FIX: Memory efficient]
+// RateLimitEntry tracks request count and window start time.
 type RateLimitEntry struct {
 	count     uint32    // Request count in current window
 	windowStart time.Time // When the current window started
@@ -41,7 +41,7 @@ func NewRateLimiter(log *slog.Logger) *RateLimiter {
 	return rl
 }
 
-// isAllowed checks if request is within rate limit (100 requests per minute per IP) [HIGH FIX]
+// isAllowed checks if request is within rate limit (100 requests per minute per IP).
 func (rl *RateLimiter) isAllowed(identifier string) bool {
 	return rl.isAllowedWithLimit(identifier, 100)
 }
@@ -81,7 +81,7 @@ func (rl *RateLimiter) isAllowedWithLimit(identifier string, limitPerMinute uint
 	return true
 }
 
-// cleanup removes old entries to prevent memory leak [HIGH FIX: More aggressive cleanup]
+// cleanup removes old entries to prevent memory leaks.
 func (rl *RateLimiter) cleanup() {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -97,7 +97,7 @@ func (rl *RateLimiter) cleanup() {
 	}
 }
 
-// RateLimitMiddleware enforces rate limiting (100 requests per minute per IP) [HIGH FIX]
+// RateLimitMiddleware enforces rate limiting (100 requests per minute per IP).
 func RateLimitMiddleware(rl *RateLimiter, log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

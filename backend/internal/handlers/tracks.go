@@ -28,7 +28,7 @@ func NewTrackHandlers(database *db.Database, r2Client *storage.R2Client, log *sl
 	return &TrackHandlers{db: database, r2: r2Client, log: log}
 }
 
-// ListTracks handles GET /projects/{id}/tracks - lists all tracks in a project [HIGH FIX: Add pagination]
+// ListTracks lists all tracks in a project with pagination.
 func (h *TrackHandlers) ListTracks(w http.ResponseWriter, r *http.Request) {
 	userID, err := helpers.GetUserID(r)
 	if err != nil {
@@ -37,17 +37,17 @@ func (h *TrackHandlers) ListTracks(w http.ResponseWriter, r *http.Request) {
 	}
 	projectID := r.PathValue("project_id")
 
-	// [HIGH FIX] Extract pagination parameters
+	// Extract pagination parameters
 	limit, offset := helpers.ExtractPaginationParams(r)
 
-	// [HIGH FIX] Verify access first (fail fast)
+	// Verify access first (fail fast)
 	project, err := h.db.GetProjectByID(r.Context(), projectID, userID)
 	if err != nil || project == nil {
 		helpers.WriteForbidden(w, "access denied")
 		return
 	}
 
-	// [HIGH FIX] Query with pagination
+	// Query with pagination
 	tracks, total, err := h.db.GetProjectTracksPaginated(r.Context(), projectID, limit, offset)
 	if err != nil {
 		h.log.Error("failed to get tracks", "error", err)
@@ -55,7 +55,7 @@ func (h *TrackHandlers) ListTracks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// [HIGH FIX] Return with pagination metadata
+	// Return with pagination metadata
 	response := map[string]interface{}{
 		"data": tracks,
 		"pagination": map[string]interface{}{
@@ -111,7 +111,7 @@ func (h *TrackHandlers) CreateTrack(w http.ResponseWriter, r *http.Request) {
 	helpers.WriteJSON(w, http.StatusCreated, track)
 }
 
-// ListTrackVersions handles GET /tracks/{id}/versions - lists all versions of a track [HIGH FIX: Add soft-delete filtering]
+// ListTrackVersions lists all versions of a track.
 func (h *TrackHandlers) ListTrackVersions(w http.ResponseWriter, r *http.Request) {
 	userID, err := helpers.GetUserID(r)
 	if err != nil {
@@ -124,7 +124,7 @@ func (h *TrackHandlers) ListTrackVersions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// [HIGH FIX] Verify user has access
+	// Verify user has access
 	track, err := h.db.GetTrackByID(r.Context(), trackID)
 	if err != nil || track == nil {
 		helpers.WriteNotFound(w, "track not found")
@@ -137,7 +137,7 @@ func (h *TrackHandlers) ListTrackVersions(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// [HIGH FIX] Get versions with soft-delete filtering
+	// Get versions with soft-delete filtering applied
 	versions, err := h.db.GetTrackVersions(r.Context(), trackID)
 	if err != nil {
 		h.log.Error("failed to get track versions", "error", err)
@@ -190,14 +190,14 @@ func (h *TrackHandlers) UploadTrackVersion(w http.ResponseWriter, r *http.Reques
 	}
 	defer file.Close()
 
-	// Validate audio file [CRITICAL FIX: Check file size and type]
+	// Validate audio file
 	if err := storage.ValidateAudioFile(fileHeader.Filename, fileHeader.Size); err != nil {
 		h.log.Warn("invalid audio file", "error", err, "filename", fileHeader.Filename)
 		http.Error(w, fmt.Sprintf("invalid file: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	// Check subscription quota BEFORE creating version [CRITICAL FIX: Quota pre-check]
+	// Check subscription quota before creating version
 	subscription, err := h.db.GetUserSubscription(r.Context(), userID)
 	if err != nil {
 		h.log.Error("failed to get subscription", "error", err, "user_id", userID)
@@ -250,7 +250,7 @@ func (h *TrackHandlers) UploadTrackVersion(w http.ResponseWriter, r *http.Reques
 	nextVersion := latestVersion + 1
 	versionID := uuid.New().String()
 
-	// Create R2 object key (path in bucket) - enforces user_id prefix [CRITICAL FIX]
+	// Create R2 object key (path in bucket) - enforces user_id prefix
 	r2ObjectKey := fmt.Sprintf("tracks/%s/%s/v%d-%s", userID, trackID, nextVersion, uuid.New().String())
 
 	// Step 1: Upload to Cloudflare R2 FIRST (before DB so we can retry)
@@ -261,7 +261,7 @@ func (h *TrackHandlers) UploadTrackVersion(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// [CRITICAL FIX] Step 2: Begin transaction for atomic DB operations
+	// Begin transaction for atomic DB operations
 	tx, err := h.db.Pool().Begin(r.Context())
 	if err != nil {
 		h.log.Error("failed to begin transaction", "error", err)
@@ -331,7 +331,7 @@ func (h *TrackHandlers) GetSignedPlayURL(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// [CRITICAL FIX] Verify user has access to this track's project BEFORE generating signed URL
+	// Verify user has access to this track's project before generating signed URL
 	track, err := h.db.GetTrackByID(r.Context(), trackID)
 	if err != nil || track == nil {
 		h.log.Warn("track not found", "track_id", trackID, "error", err)
@@ -339,7 +339,7 @@ func (h *TrackHandlers) GetSignedPlayURL(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// [CRITICAL FIX] Check user has access to the PROJECT that CONTAINS this track
+	// Check user has access to the project that contains this track
 	project, err := h.db.GetProjectByID(r.Context(), track.ProjectID, userID)
 	if err != nil || project == nil {
 		h.log.Warn("unauthorized access attempt to track",

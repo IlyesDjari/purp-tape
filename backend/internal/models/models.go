@@ -10,6 +10,7 @@ type User struct {
 	Email     string     `db:"email"`
 	Username  string     `db:"username"`
 	AvatarURL string     `db:"avatar_url"`
+	Role      string     `db:"role"`      // 'user', 'admin', 'founder'
 	CreatedAt time.Time  `db:"created_at"`
 	UpdatedAt time.Time  `db:"updated_at"`
 	DeletedAt *time.Time `db:"deleted_at"` // Soft delete timestamp
@@ -31,7 +32,7 @@ type Project struct {
 	LikeCount          int        `db:"like_count"`
 	CreatedAt          time.Time  `db:"created_at"`
 	UpdatedAt          time.Time  `db:"updated_at"`
-	DeletedAt          *time.Time `db:"deleted_at"` // Soft delete timestamp [CRITICAL FIX]
+	DeletedAt          *time.Time `db:"deleted_at"` // Soft delete timestamp
 }
 
 // Track represents an individual audio track
@@ -43,7 +44,7 @@ type Track struct {
 	Duration  int        `db:"duration"` // in seconds
 	CreatedAt time.Time  `db:"created_at"`
 	UpdatedAt time.Time  `db:"updated_at"`
-	DeletedAt *time.Time `db:"deleted_at"` // Soft delete timestamp [CRITICAL FIX]
+	DeletedAt *time.Time `db:"deleted_at"` // Soft delete timestamp
 }
 
 // TrackVersion represents a version of a track (v1, v2, etc.)
@@ -55,7 +56,7 @@ type TrackVersion struct {
 	FileSize      int64      `db:"file_size"`
 	Checksum      string     `db:"checksum"` // SHA256 for integrity verification
 	CreatedAt     time.Time  `db:"created_at"`
-	DeletedAt     *time.Time `db:"deleted_at"` // Soft delete timestamp [CRITICAL FIX]
+	DeletedAt     *time.Time `db:"deleted_at"` // Soft delete timestamp
 }
 
 // ProjectShare represents access control (who can listen to a project)

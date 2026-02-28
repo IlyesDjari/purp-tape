@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-// Validate validates all required configuration [MEDIUM: Configuration validation]
+// Validate validates all required configuration keys.
 func (c *Config) Validate() error {
 	// Server
 	if c.Port < 1 || c.Port > 65535 {

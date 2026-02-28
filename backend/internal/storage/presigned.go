@@ -23,7 +23,7 @@ type QuotaChecker interface {
 	GetUserStorageUsed(ctx context.Context, userID string) (int64, error)
 }
 
-// GeneratePresignedUploadURL creates a URL for direct R2 upload from client with validation [CRITICAL FIX]
+// GeneratePresignedUploadURL creates a URL for direct R2 upload from client with validation.
 func (rc *R2Client) GeneratePresignedUploadURL(
 	ctx context.Context,
 	userID string,
@@ -32,7 +32,7 @@ func (rc *R2Client) GeneratePresignedUploadURL(
 	expectedFileSizeBytes int64,
 	quotaChecker QuotaChecker,
 ) (*PresignedUploadResult, error) {
-	// [CRITICAL FIX] Validate object key with full path traversal protection FIRST
+	// Validate object key with path traversal protection first
 	if err := rc.validateObjectKey(userID, objectKey); err != nil {
 		rc.log.Warn("invalid upload request - object key validation failed",
 			"error", err,
@@ -47,7 +47,7 @@ func (rc *R2Client) GeneratePresignedUploadURL(
 		return nil, err
 	}
 
-	// 2. Check user's storage quota BEFORE generating URL [HIGH FIX]
+	// Check user's storage quota before generating URL
 	if quotaChecker != nil {
 		subscription, err := quotaChecker.GetUserSubscription(ctx, userID)
 		if err != nil {
@@ -68,7 +68,7 @@ func (rc *R2Client) GeneratePresignedUploadURL(
 
 		availableMB := quotaMB - usedMB
 
-		// [HIGH FIX] Add overhead multiplier - client could upload slightly larger than claimed
+		// Add overhead multiplier (client could upload slightly larger than claimed)
 		// Client claims 100MB, but we reserve 110MB to account for metadata/compression variation
 		const sizeOverheadMultiplier = 1.1
 		effectiveFileSize := int64(float64(expectedFileSizeBytes) * sizeOverheadMultiplier)
@@ -96,7 +96,7 @@ func (rc *R2Client) GeneratePresignedUploadURL(
 		ContentLength:    aws.Int64(expectedFileSizeBytes), // Enforce file size
 	}
 
-	const presignExpiryDuration = 5 * time.Minute // [CRITICAL FIX] Shorter expiry (was 15 min)
+	const presignExpiryDuration = 5 * time.Minute // Shorter expiry for security
 	expiresAtTime := time.Now().Add(presignExpiryDuration)
 
 	presignResult, err := presigner.PresignPutObject(ctx, putObjectInput, func(o *s3.PresignOptions) {
@@ -110,7 +110,7 @@ func (rc *R2Client) GeneratePresignedUploadURL(
 		return nil, fmt.Errorf("failed to presign upload URL: %w", err)
 	}
 
-	// [CRITICAL FIX] Validate presigned URL contains required components before returning
+	// Validate presigned URL contains required components before returning
 	if presignResult == nil || presignResult.URL == "" {
 		return nil, fmt.Errorf("presigned URL is empty")
 	}

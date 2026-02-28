@@ -9,8 +9,7 @@ import (
 	"io"
 )
 
-// AESEncryptor provides AES-256-GCM encryption for sensitive data
-// MEDIUM FIX: Encrypt sensitive fields at rest
+// AESEncryptor provides AES-256-GCM encryption for sensitive data.
 type AESEncryptor struct {
 	key []byte
 }

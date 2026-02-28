@@ -9,7 +9,7 @@ import (
 	"github.com/IlyesDjari/purp-tape/backend/internal/db"
 )
 
-// AuditEvent represents an auditable action [MEDIUM: Audit logging for compliance]
+// AuditEvent represents an auditable action for compliance.
 type AuditEvent struct {
 	ID        string                 `json:"id"`
 	UserID    string                 `json:"user_id"`
@@ -134,7 +134,7 @@ func (al *Logger) LogShareRevoked(ctx context.Context, userID, projectID, shared
 	})
 }
 
-// LogUserDataExport logs GDPR data export requests [MEDIUM: Compliance - GDPR]
+// LogUserDataExport logs GDPR data export requests.
 func (al *Logger) LogUserDataExport(ctx context.Context, userID, requestedByUserID string, ipAddress string) error {
 	return al.LogAction(ctx, AuditEvent{
 		UserID:     requestedByUserID,
@@ -146,7 +146,7 @@ func (al *Logger) LogUserDataExport(ctx context.Context, userID, requestedByUser
 	})
 }
 
-// LogUserDataDelete logs GDPR data deletion requests [MEDIUM: Compliance - GDPR]
+// LogUserDataDelete logs GDPR data deletion requests.
 func (al *Logger) LogUserDataDelete(ctx context.Context, userID, requestedByUserID string, ipAddress string) error {
 	return al.LogAction(ctx, AuditEvent{
 		UserID:     requestedByUserID,

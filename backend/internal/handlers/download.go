@@ -29,7 +29,7 @@ func NewDownloadHandlers(database *db.Database, r2Client *storage.R2Client, log 
 	}
 }
 
-// DownloadTrackVersion handles GET /tracks/{id}/versions/{version_id}/download [HIGH: Memory-efficient streaming]
+// DownloadTrackVersion downloads a track version with memory-efficient streaming.
 func (h *DownloadHandlers) DownloadTrackVersion(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value("user_id").(string)
 	if !ok {
@@ -80,7 +80,7 @@ func (h *DownloadHandlers) DownloadTrackVersion(w http.ResponseWriter, r *http.R
 		"r2_key", version.R2ObjectKey)
 }
 
-// DownloadOfflineFile handles GET /offline/{id}/download [HIGH: Memory-efficient streaming]
+// DownloadOfflineFile downloads an offline file with memory-efficient streaming.
 func (h *DownloadHandlers) DownloadOfflineFile(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value("user_id").(string)
 	if !ok {
