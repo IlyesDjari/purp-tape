@@ -248,9 +248,15 @@ func (drm *DataRetentionManager) StartRetentionScheduler(ctx context.Context) {
 				drm.log.Info("executing daily retention policies")
 
 				// Execute all policies
-				drm.ExecutePlayHistoryRetention(ctx, DefaultPlayHistoryPolicy())
-				drm.ExecuteOfflineDownloadRetention(ctx, DefaultOfflineDownloadPolicy())
-				drm.ExecuteAuditLogRetention(ctx, DefaultAuditLogPolicy())
+				if err := drm.ExecutePlayHistoryRetention(ctx, DefaultPlayHistoryPolicy()); err != nil {
+					drm.log.Error("failed to execute play history retention", "error", err)
+				}
+				if err := drm.ExecuteOfflineDownloadRetention(ctx, DefaultOfflineDownloadPolicy()); err != nil {
+					drm.log.Error("failed to execute offline download retention", "error", err)
+				}
+				if err := drm.ExecuteAuditLogRetention(ctx, DefaultAuditLogPolicy()); err != nil {
+					drm.log.Error("failed to execute audit log retention", "error", err)
+				}
 
 				// Monitor growth
 				projection := drm.EstimateSpaceNeed(ctx)

@@ -33,10 +33,12 @@ func (h *OfflineHandlers) LogOfflinePlay(w http.ResponseWriter, r *http.Request)
 	h.log.Info("offline play logged", "user_id", userID, "download_id", downloadID)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"status":           "logged",
 		"sync_when_online": "offline plays will be counted once synced",
-	})
+	}); err != nil {
+		h.log.Error("failed to encode response", "error", err)
+	}
 }
 
 // ReconcileOfflineData handles POST /offline/sync.
@@ -46,12 +48,14 @@ func (h *OfflineHandlers) ReconcileOfflineData(w http.ResponseWriter, r *http.Re
 	h.log.Info("offline data sync initiated", "user_id", userID)
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":               "synced",
 		"offline_plays_synced": 0,
 		"last_sync":            time.Now(),
 		"message":              "Offline plays synced with server",
-	})
+	}); err != nil {
+		h.log.Error("failed to encode response", "error", err)
+	}
 }
 
 // SyncDownloadProject handles POST /projects/{id}/offline/sync.
@@ -96,13 +100,15 @@ func (h *OfflineHandlers) SyncDownloadProject(w http.ResponseWriter, r *http.Req
 	h.log.Info("project offline sync initiated", "user_id", userID, "project_id", projectID, "track_count", len(downloads))
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"project_id":       projectID,
 		"project_name":     project.Name,
 		"tracks":           downloads,
 		"total_size_bytes": getTotalSize(downloads),
 		"message":          fmt.Sprintf("Download all %d tracks for offline", len(downloads)),
-	})
+	}); err != nil {
+		h.log.Error("failed to encode response", "error", err)
+	}
 }
 
 func getTotalSize(downloads []map[string]interface{}) int64 {

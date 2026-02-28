@@ -161,7 +161,9 @@ func (h *OfflineHandlers) ConfirmDownload(w http.ResponseWriter, r *http.Request
 
 	h.log.Info("offline download confirmed", "user_id", userID, "download_id", downloadID)
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "completed", "download_id": downloadID})
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"status": "completed", "download_id": downloadID}); err != nil {
+		h.log.Error("failed to encode response", "error", err)
+	}
 }
 
 // GetOfflineDownloads handles GET /offline/downloads.
@@ -176,7 +178,9 @@ func (h *OfflineHandlers) GetOfflineDownloads(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{"downloads": downloads})
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{"downloads": downloads}); err != nil {
+		h.log.Error("failed to encode response", "error", err)
+	}
 }
 
 // DeleteOfflineDownload handles DELETE /offline/downloads/{id}.
