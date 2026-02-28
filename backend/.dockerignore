@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+.env.local
+.DS_Store
+*.log
+node_modules
+coverage
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.golangci.yml

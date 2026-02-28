@@ -1,0 +1,240 @@
+# Prometheus Alerting Rules for PurpTape
+
+groups:
+  - name: purptape
+    interval: 30s
+    evaluation_delay: 1m
+    rules:
+      # ============================================
+      # LATENCY ALERTS (SLA: p95 < 500ms, p99 < 2s)
+      # ============================================
+      
+      - alert: HighLatencyP95
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          sla: latency_p95
+        annotations:
+          summary: "P95 latency above SLA (500ms)"
+          description: "Current P95: {{ $value | humanizeDuration }}. Expected < 500ms"
+          action: "Check query performance, add indexes, scale database"
+      
+      - alert: CriticalLatencyP99
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 2.0
+        for: 2m
+        labels:
+          severity: critical
+          sla: latency_p99
+        annotations:
+          summary: "P99 latency critical (2+ seconds)"
+          description: "Current P99: {{ $value | humanizeDuration }}. Expected < 2s"
+          action: "URGENT: Check database, check for slow queries, possible DDoS"
+      
+      # ============================================
+      # ERROR RATE ALERTS (SLA: < 0.1%)
+      # ============================================
+      
+      - alert: HighErrorRate
+        expr: (rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m])) > 0.001
+        for: 5m
+        labels:
+          severity: critical
+          sla: error_rate
+        annotations:
+          summary: "Error rate above SLA (0.1%)"
+          description: "Current error rate: {{ $value | humanizePercentage }}. Expected < 0.1%"
+          action: "Check logs, check for application errors, restart affected services"
+      
+      # ============================================
+      # AVAILABILITY ALERTS (SLA: > 99.95%)
+      # ============================================
+      
+      - alert: ClusterDown
+        expr: up{job="purptape-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          sla: availability
+        annotations:
+          summary: "API cluster is down"
+          description: "All instances down or not responding"
+          action: "URGENT: Check infrastructure, check health endpoints, restart instances"
+      
+      - alert: PartialClusterDown
+        expr: (count(up{job="purptape-api"} == 1) / count(up{job="purptape-api"})) < 0.75
+        for: 2m
+        labels:
+          severity: warning
+          sla: availability
+        annotations:
+          summary: "More than 25% of cluster down"
+          description: "Healthy instances: {{ $value | humanizePercentage }}"
+          action: "Check instance health, restart or scale up"
+      
+      # ============================================
+      # DATABASE ALERTS
+      # ============================================
+      
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database is down"
+          description: "Cannot connect to PostgreSQL"
+          action: "URGENT: Check database health, check connection pool, failover to replica"
+      
+      - alert: HighConnectionPoolUsage
+        expr: (pg_stat_activity_count / pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Database connection pool > 80% used"
+          description: "Current: {{ $value | humanizePercentage }}"
+          action: "Increase max_connections or kill idle connections"
+      
+      - alert: SlowQueries
+        expr: rate(pg_stat_statements_mean_time[5m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow queries detected (> 1s avg)"
+          description: "Average query time: {{ $value | humanizeDuration }}"
+          action: "Check slow query log, add indexes, optimize queries"
+      
+      # ============================================
+      # REDIS/CACHE ALERTS
+      # ============================================
+      
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Redis cache is down"
+          description: "Rate limiting and caching will be affected"
+          action: "Check Redis health, restart, or use fallback"
+      
+      - alert: HighRedisMemoryUsage
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Redis memory usage > 85%"
+          description: "Current: {{ $value | humanizePercentage }}"
+          action: "Increase Redis memory, check for memory leaks, evict old data"
+      
+      # ============================================
+      # RESOURCE ALERTS
+      # ============================================
+      
+      - alert: HighCPUUsage
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 10m
+        labels:
+          severity: warning
+          resource: cpu
+        annotations:
+          summary: "High CPU usage (> 80%)"
+          description: "Instance: {{ $labels.instance }}, CPU: {{ $value | humanize }}%"
+          action: "Scale horizontally, optimize code, check for infinite loops"
+      
+      - alert: HighMemoryUsage
+        expr: (process_resident_memory_bytes / 536870912) > 0.8  # 80% of 512MB limit
+        for: 10m
+        labels:
+          severity: warning
+          resource: memory
+        annotations:
+          summary: "High memory usage (> 80%)"
+          description: "Instance: {{ $labels.instance }}, Memory: {{ $value | humanize }}MB"
+          action: "Check for memory leaks, increase memory, restart service"
+      
+      # ============================================
+      # STORAGE ALERTS
+      # ============================================
+      
+      - alert: HighDiskUsage
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.2
+        for: 5m
+        labels:
+          severity: warning
+          resource: disk
+        annotations:
+          summary: "Disk usage > 80%"
+          description: "Free space: {{ $value | humanizePercentage }}"
+          action: "Clean up old logs, archive data, increase disk size"
+      
+      - alert: R2StorageQuotaExceeded
+        expr: (object_storage_used_bytes / object_storage_quota_bytes) > 0.95
+        for: 10m
+        labels:
+          severity: warning
+          resource: storage
+        annotations:
+          summary: "Storage quota > 95% used"
+          description: "Used: {{ $value | humanizePercentage }}"
+          action: "Archive files, increase quota, check for orphaned files"
+      
+      # ============================================
+      # BUSINESS LOGIC ALERTS
+      # ============================================
+      
+      - alert: HighOfflineDownloadFailureRate
+        expr: (rate(offline_downloads_failed_total[5m]) / rate(offline_downloads_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          feature: offline_mode
+        annotations:
+          summary: "Offline download failure rate > 5%"
+          description: "Current rate: {{ $value | humanizePercentage }}"
+          action: "Check R2 connectivity, check file integrity, restart download processor"
+      
+      - alert: PaymentProcessingDelay
+        expr: payment_processing_delay_seconds > 60
+        for: 5m
+        labels:
+          severity: warning
+          component: payments
+        annotations:
+          summary: "Payment processing delayed (> 1 minute)"
+          description: "Current delay: {{ $value | humanizeDuration }}"
+          action: "Check Stripe/RevenueCat integration, check queue processing"
+      
+      # ============================================
+      # JOB QUEUE ALERTS
+      # ============================================
+      
+      - alert: HighBackgroundJobQueueDepth
+        expr: background_jobs_pending > 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: jobs
+        annotations:
+          summary: "Background job queue depth > 1000"
+          description: "Pending jobs: {{ $value }}"
+          action: "Increase job worker count, check for stuck jobs, optimize job processing"
+      
+      - alert: JobProcessorDown
+        expr: rate(background_jobs_processed_total[5m]) == 0 and background_jobs_pending > 0
+        for: 5m
+        labels:
+          severity: critical
+          component: jobs
+        annotations:
+          summary: "Job processor is not processing jobs"
+          description: "Pending: {{ $value }}, no progress"
+          action: "URGENT: Restart job processor, check logs"

@@ -1,0 +1,41 @@
+# Binaries
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+
+# Output of coverage
+*.out
+coverage.html
+
+# Go workspace support (1.18+)
+go.work
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Node modules (if using npm for frontend tooling)
+node_modules/
