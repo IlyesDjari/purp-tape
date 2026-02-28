@@ -2,7 +2,7 @@ app = "purptape-api"
 primary_region = "sea"
 
 [build]
-  dockerfile = "./backend/Dockerfile"
+  dockerfile = "backend/Dockerfile"
   buildpacks = []
 
 [env]
