@@ -6,25 +6,8 @@ import (
 	"log/slog"
 
 	"github.com/IlyesDjari/purp-tape/backend/internal/db"
+	"github.com/IlyesDjari/purp-tape/backend/internal/models"
 )
-
-// NotificationPreferences represents user's notification delivery preferences
-type NotificationPreferences struct {
-	ID            string
-	UserID        string
-	PushEnabled   bool
-	PushLikes     bool
-	PushComments  bool
-	PushFollows   bool
-	PushShares    bool
-	PushMentions  bool
-	QuietHours    bool   // Disable push notifications during quiet hours
-	QuietHoursStart string // "22:00" 24-hour format
-	QuietHoursEnd   string // "09:00" 24-hour format
-	BundleByType  bool   // Aggregate similar notifications
-	CreatedAt     string
-	UpdatedAt     string
-}
 
 // PreferencesService manages notification preferences
 type PreferencesService struct {
@@ -41,7 +24,7 @@ func NewPreferencesService(database *db.Database, log *slog.Logger) *Preferences
 }
 
 // GetNotificationPreferences retrieves user's notification preferences
-func (ps *PreferencesService) GetNotificationPreferences(ctx context.Context, userID string) (*NotificationPreferences, error) {
+func (ps *PreferencesService) GetNotificationPreferences(ctx context.Context, userID string) (*models.NotificationPreferences, error) {
 	prefs, err := ps.database.GetNotificationPreferences(ctx, userID)
 	if err != nil {
 		ps.log.Error("failed to get notification preferences", "error", err, "user_id", userID)
@@ -50,7 +33,7 @@ func (ps *PreferencesService) GetNotificationPreferences(ctx context.Context, us
 
 	if prefs == nil {
 		// Return default preferences if not found
-		return &NotificationPreferences{
+		return &models.NotificationPreferences{
 			UserID:          userID,
 			PushEnabled:     true,
 			PushLikes:       true,
@@ -69,7 +52,7 @@ func (ps *PreferencesService) GetNotificationPreferences(ctx context.Context, us
 }
 
 // UpdateNotificationPreferences updates user's notification preferences
-func (ps *PreferencesService) UpdateNotificationPreferences(ctx context.Context, userID string, prefs *NotificationPreferences) error {
+func (ps *PreferencesService) UpdateNotificationPreferences(ctx context.Context, userID string, prefs *models.NotificationPreferences) error {
 	prefs.UserID = userID
 
 	if err := ps.database.UpsertNotificationPreferences(ctx, prefs); err != nil {

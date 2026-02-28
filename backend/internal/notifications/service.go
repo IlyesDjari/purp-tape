@@ -71,7 +71,7 @@ func (s *NotificationService) SendNotification(ctx context.Context, req *Notific
 	if err != nil {
 		s.log.Warn("failed to get notification preferences", "error", err, "user_id", req.UserID)
 		// Continue anyway - default to send
-		prefs = &NotificationPreferences{
+		prefs = &models.NotificationPreferences{
 			UserID:                   req.UserID,
 			PushEnabled:              true,
 			PushLikes:                true,
@@ -99,7 +99,7 @@ func (s *NotificationService) SendNotification(ctx context.Context, req *Notific
 }
 
 // shouldSendPush checks if push should be sent based on preferences
-func (s *NotificationService) shouldSendPush(notifType string, prefs *NotificationPreferences) bool {
+func (s *NotificationService) shouldSendPush(notifType string, prefs *models.NotificationPreferences) bool {
 	switch notifType {
 	case "like":
 		return prefs.PushLikes

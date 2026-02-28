@@ -230,3 +230,20 @@ type OfflineDownload struct {
 	UpdatedAt          time.Time  `db:"updated_at"`
 	ExpiresAt          *time.Time `db:"expires_at"`
 }
+// NotificationPreferences represents user's notification delivery preferences
+type NotificationPreferences struct {
+	ID              string    `db:"id"`
+	UserID          string    `db:"user_id"`
+	PushEnabled     bool      `db:"push_enabled"`
+	PushLikes       bool      `db:"push_likes"`
+	PushComments    bool      `db:"push_comments"`
+	PushFollows     bool      `db:"push_follows"`
+	PushShares      bool      `db:"push_shares"`
+	PushMentions    bool      `db:"push_mentions"`
+	QuietHours      bool      `db:"quiet_hours"`
+	QuietHoursStart string    `db:"quiet_hours_start"` // "22:00" 24-hour format
+	QuietHoursEnd   string    `db:"quiet_hours_end"`   // "09:00" 24-hour format
+	BundleByType    bool      `db:"bundle_by_type"`    // Aggregate similar notifications
+	CreatedAt       time.Time `db:"created_at"`
+	UpdatedAt       time.Time `db:"updated_at"`
+}

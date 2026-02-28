@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/IlyesDjari/purp-tape/backend/internal/notifications"
+	"github.com/IlyesDjari/purp-tape/backend/internal/models"
 )
 
 // UpsertDeviceToken inserts or updates a device token
@@ -67,7 +67,7 @@ func (db *Database) DeactivateDeviceToken(ctx context.Context, token string) err
 }
 
 // GetNotificationPreferences retrieves user's notification preferences
-func (db *Database) GetNotificationPreferences(ctx context.Context, userID string) (*notifications.NotificationPreferences, error) {
+func (db *Database) GetNotificationPreferences(ctx context.Context, userID string) (*models.NotificationPreferences, error) {
 	query := `
 		SELECT 
 			id, user_id, push_enabled, push_likes, push_comments, push_follows, push_shares, push_mentions,
@@ -77,7 +77,7 @@ func (db *Database) GetNotificationPreferences(ctx context.Context, userID strin
 		WHERE user_id = $1
 	`
 
-	var prefs notifications.NotificationPreferences
+	var prefs models.NotificationPreferences
 	err := db.pool.QueryRow(ctx, query, userID).Scan(
 		&prefs.ID, &prefs.UserID, &prefs.PushEnabled, &prefs.PushLikes, &prefs.PushComments,
 		&prefs.PushFollows, &prefs.PushShares, &prefs.PushMentions,
@@ -96,7 +96,7 @@ func (db *Database) GetNotificationPreferences(ctx context.Context, userID strin
 }
 
 // UpsertNotificationPreferences inserts or updates notification preferences
-func (db *Database) UpsertNotificationPreferences(ctx context.Context, prefs *notifications.NotificationPreferences) error {
+func (db *Database) UpsertNotificationPreferences(ctx context.Context, prefs *models.NotificationPreferences) error {
 	query := `
 		INSERT INTO notification_preferences 
 		(user_id, push_enabled, push_likes, push_comments, push_follows, push_shares, push_mentions,
