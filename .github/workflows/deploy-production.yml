@@ -16,6 +16,21 @@ jobs:
       contents: read
       packages: write
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: purptape
+          POSTGRES_PASSWORD: devpassword123
+          POSTGRES_DB: purptape
+        options: >-
+          --health-cmd="pg_isready -U purptape"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+        ports:
+          - 5432:5432
+
     defaults:
       run:
         working-directory: backend
@@ -43,22 +58,7 @@ jobs:
           DB_PASSWORD: devpassword123
           DB_NAME: purptape
           MIGRATIONS_DIR: migrations
-        services:
-          postgres:
-            image: postgres:16-alpine
-            env:
-              POSTGRES_USER: purptape
-              POSTGRES_PASSWORD: devpassword123
-              POSTGRES_DB: purptape
-            options: >-
-              --health-cmd="pg_isready -U purptape"
-              --health-interval=5s
-              --health-timeout=5s
-              --health-retries=20
-            ports:
-              - 5432:5432
-        run: |
-          go test ./...
+        run: go test ./...
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
