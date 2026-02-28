@@ -41,5 +41,5 @@ primary_region = "cdg"
 
 [autoscaling]
   enabled = true
-  min_machines = 1
+  min_machines = 2
   max_machines = 10
