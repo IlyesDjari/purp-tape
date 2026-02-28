@@ -30,13 +30,13 @@ func New(ctx context.Context, databaseURL string, maxConns, minConns int, log *s
 		return nil, fmt.Errorf("failed to parse database URL: %w", err)
 	}
 
-	// PERFORMANCE: Aggressive pooling for high-throughput scenarios
-	// 2x larger default pool for concurrent RLS checks
+	// SUPABASE COMPATIBILITY: Conservative pool sizing
+	// Supabase has connection limits, avoid exhausting them
 	if maxConns <= 0 {
-		maxConns = 40 // Default: handle bursts up to 40 concurrent queries
+		maxConns = 20 // Default: conservative for Supabase limits
 	}
 	if minConns <= 0 {
-		minConns = 10 // Keep 10 warm connections
+		minConns = 5 // Keep 5 warm connections
 	}
 
 	config.MaxConns = int32(maxConns)
@@ -52,15 +52,12 @@ func New(ctx context.Context, databaseURL string, maxConns, minConns int, log *s
 	
 	// Network optimization
 	config.ConnConfig.ConnectTimeout = 5 * time.Second
+	
+	// SUPABASE COMPATIBILITY: Only set safe runtime parameters
+	// Avoid server-level params (shared_buffers, etc) which Supabase blocks
 	config.ConnConfig.RuntimeParams = map[string]string{
-		"application_name":         "purptape-api",
-		"jit":                      "off",           // Disable JIT for consistent performance
-		"random_page_cost":         "1.1",           // Assume SSD storage
-		"effective_cache_size":     "2GB",           // Tune planner
-		"shared_buffers":           "256MB",         // From connection pooling
-		"work_mem":                 "8MB",           // Per operation
-		"maintenance_work_mem":     "64MB",          // For index creation
-		"max_parallel_workers_per_gather": "2",     // Parallel query execution
+		"application_name": "purptape-api",
+		"jit":              "off", // Safe: disable JIT for consistent performance
 	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
