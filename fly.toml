@@ -32,7 +32,7 @@ primary_region = "cdg"
     path = "/health"
     interval = 10000
     timeout = 5000
-    grace_period = "5s"
+    grace_period = "60s"
     min_recovery = 5
 
 [[vm]]
