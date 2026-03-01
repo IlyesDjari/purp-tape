@@ -45,17 +45,19 @@ type Validator struct {
 	supabaseURL    string
 	anonKey        string
 	secretKey      string
+	jwtSecret      string
 	publicKeyCache map[string]interface{}
 	keysMutex      sync.RWMutex
 	keysExpiry     time.Time
 }
 
 // NewValidator creates a new auth validator with server-side verification
-func NewValidator(supabaseURL, anonKey, secretKey string) *Validator {
+func NewValidator(supabaseURL, anonKey, secretKey, jwtSecret string) *Validator {
 	return &Validator{
 		supabaseURL:    supabaseURL,
 		anonKey:        anonKey,
 		secretKey:      secretKey,
+		jwtSecret:      jwtSecret,
 		publicKeyCache: make(map[string]interface{}),
 	}
 }
@@ -77,21 +79,26 @@ func (v *Validator) ValidateToken(authHeader string) (*SupabaseJWT, error) {
 			return nil, fmt.Errorf("token algorithm 'none' is not allowed")
 		}
 
-		// Verify algorithm is HS256 or RS256 (not None!)
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); ok {
+			if v.jwtSecret != "" {
+				return []byte(v.jwtSecret), nil
 			}
+			if v.secretKey != "" {
+				return []byte(v.secretKey), nil
+			}
+			return nil, fmt.Errorf("missing JWT secret for HMAC token validation")
 		}
 
-		// Get the key ID from token header
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+
+		// RS256 flow: key ID must exist and be resolved from JWKS
 		kid, ok := token.Header["kid"].(string)
-		if !ok {
-			// Fall back to using secret key for HS256
-			return []byte(v.secretKey), nil
+		if !ok || kid == "" {
+			return nil, fmt.Errorf("missing key id for RSA token")
 		}
 
-		// Fetch public key from Supabase JWKS endpoint
 		publicKey, err := v.getPublicKey(kid)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get public key: %w", err)

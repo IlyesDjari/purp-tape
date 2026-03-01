@@ -8,7 +8,13 @@ public actor SupabaseAuthService: AuthService {
     private var authStateTask: Task<Void, Never>?
 
     public init(supabaseURL: URL, supabaseAnonKey: String, vault: KeychainVault) {
-        self.client = SupabaseClient(supabaseURL: supabaseURL, supabaseKey: supabaseAnonKey)
+        self.client = SupabaseClient(
+            supabaseURL: supabaseURL,
+            supabaseKey: supabaseAnonKey,
+            options: SupabaseClientOptions(
+                auth: .init(emitLocalSessionAsInitialSession: true)
+            )
+        )
         self.vault = vault
 
         authStateTask = Task { [client, vault] in
@@ -37,6 +43,27 @@ public actor SupabaseAuthService: AuthService {
     }
 
     public func currentSession() async throws -> AuthSession? {
+        if let cached = try await vault.loadSession(), !cached.isExpired {
+            Task { [client, vault, cached] in
+                _ = try? await client.auth.setSession(
+                    accessToken: cached.accessToken,
+                    refreshToken: cached.refreshToken
+                )
+
+                if let session = try? await client.auth.session {
+                    let mapped = AuthSession(
+                        accessToken: session.accessToken,
+                        refreshToken: session.refreshToken,
+                        userID: session.user.id,
+                        expiresAt: Date(timeIntervalSince1970: session.expiresAt)
+                    )
+                    try? await vault.saveSession(mapped)
+                }
+            }
+
+            return cached
+        }
+
         try await restorePersistedSessionIfNeeded()
 
         do {
@@ -57,6 +84,21 @@ public actor SupabaseAuthService: AuthService {
         return mapped
     }
 
+    public func signInWithApple(idToken: String, nonce: String?) async throws -> AuthSession {
+        let session = try await client.auth.signInWithIdToken(
+            credentials: OpenIDConnectCredentials(
+                provider: .apple,
+                idToken: idToken,
+                nonce: nonce
+            )
+        )
+
+        let mapped = map(session)
+        try await vault.saveSession(mapped)
+        didRestorePersistedSession = true
+        return mapped
+    }
+
     public func signOut() async throws {
         try await restorePersistedSessionIfNeeded()
         try await client.auth.signOut()
@@ -66,14 +108,17 @@ public actor SupabaseAuthService: AuthService {
     public func refreshIfNeeded() async throws -> AuthSession {
         try await restorePersistedSessionIfNeeded()
 
-        if let current = try await vault.loadSession(), !current.isExpired {
-            return current
+        do {
+            let refreshed = try await client.auth.refreshSession()
+            let mapped = map(refreshed)
+            try await vault.saveSession(mapped)
+            return mapped
+        } catch {
+            if let current = try await vault.loadSession(), !current.isExpired {
+                return current
+            }
+            throw error
         }
-
-        let refreshed = try await client.auth.refreshSession()
-        let mapped = map(refreshed)
-        try await vault.saveSession(mapped)
-        return mapped
     }
 
     private func restorePersistedSessionIfNeeded() async throws {

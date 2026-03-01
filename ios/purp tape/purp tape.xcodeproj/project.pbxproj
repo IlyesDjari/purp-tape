@@ -24,11 +24,11 @@
 
 /* Begin PBXFileReference section */
 		7E459C272F53751600D24020 /* purp tape.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "purp tape.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A1F100012F53751600D24020 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = "<group>"; };
-		A1F100022F53751600D24020 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
-		A1F100032F53751600D24020 /* Dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Dev.xcconfig; sourceTree = "<group>"; };
-		A1F100042F53751600D24020 /* Acc.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Acc.xcconfig; sourceTree = "<group>"; };
-		A1F100052F53751600D24020 /* Production.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Production.xcconfig; sourceTree = "<group>"; };
+		A1F100012F53751600D24020 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1F100022F53751600D24020 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1F100032F53751600D24020 /* Dev.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Dev.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1F100042F53751600D24020 /* Acc.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Acc.xcconfig; sourceTree = SOURCE_ROOT; };
+		A1F100052F53751600D24020 /* Production.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Production.xcconfig; sourceTree = SOURCE_ROOT; };
 		A2F000012F53751600D24020 /* purp tapeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "purp tapeTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -353,12 +353,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "purp tape.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"purp tape/Preview Content\"";
-				DEVELOPMENT_TEAM = H2ZHJHU49C;
+				DEVELOPMENT_TEAM = L36Z6K6Q9J;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "purp-tape-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Purp Tape Debug";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "PurpTape requires microphone access to record and upload audio takes.";
@@ -379,8 +382,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "ilyes.purp-tape.debug";
+				PRODUCT_BUNDLE_IDENTIFIER = ilyes.purptape.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -398,13 +402,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "purp tape.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"purp tape/Preview Content\"";
-				DEVELOPMENT_TEAM = H2ZHJHU49C;
+				DEVELOPMENT_TEAM = L36Z6K6Q9J;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Purp Tape";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "purp-tape-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Purp Tape Debug";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "PurpTape requires microphone access to record and upload audio takes.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "PurpTape requires photo library write access for exported media artifacts.";
@@ -424,7 +430,6 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "ilyes.purp-tape.production";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -506,13 +511,15 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "purp tape.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"purp tape/Preview Content\"";
-				DEVELOPMENT_TEAM = H2ZHJHU49C;
+				DEVELOPMENT_TEAM = L36Z6K6Q9J;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Purp Tape Staging";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "purp-tape-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Purp Tape Debug";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "PurpTape requires microphone access to record and upload audio takes.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "PurpTape requires photo library write access for exported media artifacts.";
@@ -532,7 +539,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "ilyes.purp-tape.acc";
+				PRODUCT_BUNDLE_IDENTIFIER = ilyes.purptape.acc;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;

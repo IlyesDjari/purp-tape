@@ -1,5 +1,9 @@
-#include "Config.xcconfig"
-
+SWIFT_STRICT_CONCURRENCY = complete
+SWIFT_VERSION = 6.0
+OTHER_SWIFT_FLAGS = $(inherited) -warn-concurrency
 PURPTAPE_ENV = production
-PURPTAPE_API_BASE_URL = https://purptape-api.fly.dev
-PRODUCT_BUNDLE_IDENTIFIER = ilyes.purp-tape
+PURPTAPE_API_BASE_URL = https:/$()/purptape-api.fly.dev
+PURPTAPE_API_STAGING_URL = https:/$()/purptape-api-staging.fly.dev
+PRODUCT_BUNDLE_IDENTIFIER = ilyes.purptape.production
+
+#include "Secrets.xcconfig"

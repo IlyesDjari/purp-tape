@@ -12,7 +12,7 @@ import (
 )
 
 func TestAuthMiddleware_MissingAuthorizationHeader(t *testing.T) {
-	validator := auth.NewValidator("", "", "")
+	validator := auth.NewValidator("", "", "", "")
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	handler := AuthMiddleware(validator, logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +34,7 @@ func TestAuthMiddleware_MissingAuthorizationHeader(t *testing.T) {
 }
 
 func TestAuthMiddleware_InvalidAuthorizationHeader(t *testing.T) {
-	validator := auth.NewValidator("", "", "")
+	validator := auth.NewValidator("", "", "", "")
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	handler := AuthMiddleware(validator, logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

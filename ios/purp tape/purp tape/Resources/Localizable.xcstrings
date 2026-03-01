@@ -1,6 +1,120 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    " Terms of Service" : {
+
+    },
+    "Access Denied" : {
+
+    },
+    "Access Token (first 20 chars)" : {
+
+    },
+    "Add Project" : {
+
+    },
+    "Alert" : {
+
+    },
+    "Already have an account?" : {
+
+    },
+    "Artwork" : {
+
+    },
+    "At least 8 characters" : {
+
+    },
+    "Auth Debug Info" : {
+
+    },
+    "Authenticated" : {
+
+    },
+    "Back" : {
+
+    },
+    "Back to Sign In" : {
+
+    },
+    "Check Your Email" : {
+
+    },
+    "Confirm new password" : {
+
+    },
+    "Confirm Password" : {
+
+    },
+    "Confirm your password" : {
+
+    },
+    "Continue to Sign In" : {
+
+    },
+    "Create a new project" : {
+
+    },
+    "Create Account" : {
+
+    },
+    "Create New Password" : {
+
+    },
+    "Create Project" : {
+
+    },
+    "Description" : {
+
+    },
+    "Didn't get the email?" : {
+
+    },
+    "Discover" : {
+
+    },
+    "Don't have an account?" : {
+
+    },
+    "Email" : {
+
+    },
+    "Email Address" : {
+
+    },
+    "Enter new password" : {
+
+    },
+    "Enter the email address associated with your account. We'll send you a link to reset your password." : {
+
+    },
+    "Enter your email" : {
+
+    },
+    "Enter your full name" : {
+
+    },
+    "Enter your new password below" : {
+
+    },
+    "Enter your password" : {
+
+    },
+    "Error" : {
+
+    },
+    "Expired" : {
+
+    },
+    "Expires At" : {
+
+    },
+    "Forgot password?" : {
+
+    },
+    "Full Name" : {
+
+    },
     "home.welcome" : {
       "comment" : "Welcome text on app home screen",
       "localizations" : {
@@ -17,6 +131,162 @@
           }
         }
       }
+    },
+    "I agree to the" : {
+
+    },
+    "Initialization Error" : {
+
+    },
+    "Invalid email address" : {
+
+    },
+    "Join the PurpTape community" : {
+
+    },
+    "Last Error" : {
+
+    },
+    "Loading..." : {
+
+    },
+    "Name" : {
+
+    },
+    "New Password" : {
+
+    },
+    "Not Authenticated" : {
+
+    },
+    "One number" : {
+
+    },
+    "One uppercase letter" : {
+
+    },
+    "Optional description" : {
+
+    },
+    "Or continue with" : {
+
+    },
+    "Or sign up with" : {
+
+    },
+    "Password" : {
+
+    },
+    "Password requirements:" : {
+
+    },
+    "Password Reset Successful" : {
+
+    },
+    "Passwords do not match" : {
+
+    },
+    "Pick artwork" : {
+
+    },
+    "Private" : {
+
+    },
+    "Profile" : {
+
+    },
+    "Project Details: %@" : {
+
+    },
+    "Project name" : {
+
+    },
+    "Projects" : {
+
+    },
+    "Public" : {
+
+    },
+    "Reset Password" : {
+
+    },
+    "Retry" : {
+
+    },
+    "Send Reset Link" : {
+
+    },
+    "Session Expired" : {
+
+    },
+    "Session Info" : {
+
+    },
+    "Settings" : {
+
+    },
+    "Share Project %@" : {
+
+    },
+    "Sign In" : {
+
+    },
+    "Sign In Again" : {
+
+    },
+    "Sign in to access your projects" : {
+
+    },
+    "Sign Out" : {
+
+    },
+    "Sign Up" : {
+
+    },
+    "Start something new" : {
+
+    },
+    "Stats" : {
+
+    },
+    "Token Status" : {
+
+    },
+    "Try Again" : {
+
+    },
+    "Try Another Email" : {
+
+    },
+    "Upload Track to %@" : {
+
+    },
+    "User ID" : {
+
+    },
+    "Valid" : {
+
+    },
+    "Visibility" : {
+
+    },
+    "We'll send you instructions to reset your password" : {
+
+    },
+    "We've sent password reset instructions to %@" : {
+
+    },
+    "Welcome Back" : {
+
+    },
+    "You need to be signed in to access this content" : {
+
+    },
+    "Your password has been updated successfully. You can now sign in with your new password." : {
+
+    },
+    "Your session has expired. Please sign in again." : {
+
     }
   },
   "version" : "1.0"
