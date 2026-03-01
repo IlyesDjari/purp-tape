@@ -64,6 +64,7 @@ fastlane/test_output
 # PurpTape iOS local secrets
 ios/purp tape/purp tape/Secrets.xcconfig
 ios/purp tape/Secrets.xcconfig
+ios/purp tape/build/
 
 # macOS
 .DS_Store

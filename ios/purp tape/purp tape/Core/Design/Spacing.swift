@@ -173,34 +173,41 @@ public struct ShadowStyle {
     public static let light = Shadow(
         color: Color.black.opacity(0.05),
         radius: 2,
-        x: 0,
-        y: 1
+        horizontal: 0,
+        vertical: 1
     )
     
     public static let medium = Shadow(
         color: Color.black.opacity(0.1),
         radius: 4,
-        x: 0,
-        y: 2
+        horizontal: 0,
+        vertical: 2
     )
     
     public static let large = Shadow(
         color: Color.black.opacity(0.15),
         radius: 8,
-        x: 0,
-        y: 4
+        horizontal: 0,
+        vertical: 4
     )
 }
 
 public struct Shadow: ViewModifier {
     let color: Color
     let radius: CGFloat
-    let x: CGFloat
-    let y: CGFloat
+    let horizontalOffset: CGFloat
+    let verticalOffset: CGFloat
+
+    public init(color: Color, radius: CGFloat, horizontal: CGFloat, vertical: CGFloat) {
+        self.color = color
+        self.radius = radius
+        self.horizontalOffset = horizontal
+        self.verticalOffset = vertical
+    }
     
     public func body(content: Content) -> some View {
         content
-            .shadow(color: color, radius: radius, x: x, y: y)
+            .shadow(color: color, radius: radius, x: horizontalOffset, y: verticalOffset)
     }
 }
 
