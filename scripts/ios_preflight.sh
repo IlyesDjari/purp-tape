@@ -3,8 +3,13 @@ set -euo pipefail
 
 PROJECT_PATH="ios/purp tape/purp tape.xcodeproj"
 SCHEME="${1:-PurpTape-Dev}"
-MODE="${2:-lint-only}"
+MODE="${2:-lint-analyze}"
 CONFIGURATION="Dev"
+
+# Modes:
+# - lint-only: Run SwiftLint only
+# - lint-analyze: Run SwiftLint + Static Analysis (for CI)
+# - full: Run SwiftLint + Static Analysis + Tests (for local development)
 SIMULATOR_ID="$(xcrun simctl list devices available | awk -F '[()]' '/iPhone 16/ {print $2; exit}')"
 if [[ -n "$SIMULATOR_ID" ]]; then
   DESTINATION="platform=iOS Simulator,id=${SIMULATOR_ID}"
@@ -26,7 +31,7 @@ fi
 swiftlint lint --config .swiftlint.yml
 
 if [[ "$MODE" == "lint-only" ]]; then
-  echo "✅ iOS preflight lint-only gate passed"
+  echo "✅ iOS preflight passed (lint-only mode)"
   exit 0
 fi
 
@@ -67,7 +72,12 @@ if [[ $ANALYZE_STATUS -ne 0 ]]; then
   exit $ANALYZE_STATUS
 fi
 
-echo "==> iOS preflight: Clean test run"
+if [[ "$MODE" == "lint-analyze" ]]; then
+  echo "✅ iOS preflight passed (lint-analyze mode)"
+  exit 0
+fi
+
+echo "==> iOS preflight: Running tests"
 xcodebuild \
   -project "$PROJECT_PATH" \
   -scheme "$SCHEME" \
@@ -77,4 +87,4 @@ xcodebuild \
   CODE_SIGNING_ALLOWED=NO \
   | $XCODEBUILD_PIPE
 
-echo "✅ iOS preflight quality gate passed"
+echo "✅ iOS preflight passed (full mode with tests)"
