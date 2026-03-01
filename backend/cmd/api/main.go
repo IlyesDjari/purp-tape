@@ -68,7 +68,7 @@ func main() {
 	}
 
 	// Initialize auth validator
-	authValidator := auth.NewValidator(cfg.SupabaseURL, cfg.SupabaseAnonKey, cfg.SupabaseSecretKey)
+	authValidator := auth.NewValidator(cfg.SupabaseURL, cfg.SupabaseAnonKey, cfg.SupabaseSecretKey, cfg.JWTSecret)
 
 	// Initialize notification services
 	pushNotifSvc := notifications.NewPushNotificationService(database, cfg.FCMServerKey, log)

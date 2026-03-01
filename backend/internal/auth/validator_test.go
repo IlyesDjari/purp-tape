@@ -9,7 +9,7 @@ import (
 )
 
 func TestValidateToken_ValidToken(t *testing.T) {
-	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key")
+	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key", "test-jwt-secret")
 
 	// Create a valid test token with HS256
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -20,7 +20,7 @@ func TestValidateToken_ValidToken(t *testing.T) {
 		"aud": "authenticated",
 	})
 
-	tokenString, err := token.SignedString([]byte("test-secret-key"))
+	tokenString, err := token.SignedString([]byte("test-jwt-secret"))
 	if err != nil {
 		t.Fatalf("failed to create test token: %v", err)
 	}
@@ -34,6 +34,7 @@ func TestValidateToken_ValidToken(t *testing.T) {
 
 	if claims == nil {
 		t.Errorf("ValidateToken() returned nil claims")
+		return
 	}
 
 	if claims.Sub != "test-user-id" {
@@ -42,7 +43,7 @@ func TestValidateToken_ValidToken(t *testing.T) {
 }
 
 func TestValidateToken_InvalidFormat(t *testing.T) {
-	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key")
+	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key", "test-jwt-secret")
 
 	tests := []string{
 		"Bearer",              // Missing token
@@ -60,7 +61,7 @@ func TestValidateToken_InvalidFormat(t *testing.T) {
 }
 
 func TestValidateToken_RejectsNoneAlgorithm(t *testing.T) {
-	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key")
+	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key", "test-jwt-secret")
 
 	// Create token with 'none' algorithm (security risk) - will be malformed
 	token := jwt.NewWithClaims(jwt.SigningMethodNone, jwt.MapClaims{
@@ -79,7 +80,7 @@ func TestValidateToken_RejectsNoneAlgorithm(t *testing.T) {
 
 
 func TestValidateToken_ExpiredToken(t *testing.T) {
-	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key")
+	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key", "test-jwt-secret")
 
 	// Create expired token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -88,7 +89,7 @@ func TestValidateToken_ExpiredToken(t *testing.T) {
 		"iat": time.Now().Add(-2 * time.Hour).Unix(),
 	})
 
-	tokenString, _ := token.SignedString([]byte("test-secret-key"))
+	tokenString, _ := token.SignedString([]byte("test-jwt-secret"))
 	authHeader := fmt.Sprintf("Bearer %s", tokenString)
 
 	_, err := validator.ValidateToken(authHeader)
@@ -98,7 +99,7 @@ func TestValidateToken_ExpiredToken(t *testing.T) {
 }
 
 func TestValidateToken_InvalidSignature(t *testing.T) {
-	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key")
+	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key", "test-jwt-secret")
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": "test-user",

@@ -1,0 +1,43 @@
+name: iOS Preflight Quality Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+      - staging
+      - develop
+    paths:
+      - 'ios/**'
+      - '.swiftlint.yml'
+      - 'scripts/ios_preflight.sh'
+      - '.github/workflows/ios-preflight.yml'
+  push:
+    branches:
+      - develop
+      - staging
+    paths:
+      - 'ios/**'
+      - '.swiftlint.yml'
+      - 'scripts/ios_preflight.sh'
+      - '.github/workflows/ios-preflight.yml'
+
+concurrency:
+  group: ios-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: Lint + Analyze
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run iOS preflight quality gate
+        run: |
+          chmod +x scripts/ios_preflight.sh
+          ./scripts/ios_preflight.sh PurpTape-Dev lint-analyze

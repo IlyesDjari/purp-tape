@@ -1,0 +1,29 @@
+included:
+  - ios
+
+excluded:
+  - ios/tests
+  - ios/purp tape/purp tapeTests
+  - ios/**/Preview Content
+
+disabled_rules:
+  - type_name
+  - line_length
+  - trailing_whitespace
+  - trailing_comma
+  - function_body_length
+
+opt_in_rules:
+  - force_unwrapping
+  - force_try
+
+force_cast:
+  severity: error
+
+force_try:
+  severity: error
+
+force_unwrapping:
+  severity: error
+
+reporter: xcode
