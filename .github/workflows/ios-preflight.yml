@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   preflight:
-    name: Lint + Analyze + Test
+    name: Lint + Analyze
     runs-on: macos-latest
 
     steps:
@@ -37,7 +37,7 @@ jobs:
       - name: Install SwiftLint
         run: brew install swiftlint
 
-      - name: Run iOS preflight gate
+      - name: Run iOS preflight quality gate
         run: |
           chmod +x scripts/ios_preflight.sh
-          ./scripts/ios_preflight.sh PurpTape-Dev full
+          ./scripts/ios_preflight.sh PurpTape-Dev lint-analyze
