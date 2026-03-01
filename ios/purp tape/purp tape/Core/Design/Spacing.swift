@@ -169,27 +169,34 @@ public extension View {
 
 // MARK: - Shadow Styles
 
+@MainActor
 public struct ShadowStyle {
-    public static let light = Shadow(
-        color: Color.black.opacity(0.05),
-        radius: 2,
-        horizontal: 0,
-        vertical: 1
-    )
-    
-    public static let medium = Shadow(
-        color: Color.black.opacity(0.1),
-        radius: 4,
-        horizontal: 0,
-        vertical: 2
-    )
-    
-    public static let large = Shadow(
-        color: Color.black.opacity(0.15),
-        radius: 8,
-        horizontal: 0,
-        vertical: 4
-    )
+    public static func light() -> Shadow {
+        Shadow(
+            color: Color.black.opacity(0.05),
+            radius: 2,
+            horizontal: 0,
+            vertical: 1
+        )
+    }
+
+    public static func medium() -> Shadow {
+        Shadow(
+            color: Color.black.opacity(0.1),
+            radius: 4,
+            horizontal: 0,
+            vertical: 2
+        )
+    }
+
+    public static func large() -> Shadow {
+        Shadow(
+            color: Color.black.opacity(0.15),
+            radius: 8,
+            horizontal: 0,
+            vertical: 4
+        )
+    }
 }
 
 public struct Shadow: ViewModifier {
@@ -212,16 +219,19 @@ public struct Shadow: ViewModifier {
 }
 
 public extension View {
+    @MainActor
     func shadowLight() -> some View {
-        self.modifier(ShadowStyle.light)
+        self.modifier(ShadowStyle.light())
     }
     
+    @MainActor
     func shadowMedium() -> some View {
-        self.modifier(ShadowStyle.medium)
+        self.modifier(ShadowStyle.medium())
     }
     
+    @MainActor
     func shadowLarge() -> some View {
-        self.modifier(ShadowStyle.large)
+        self.modifier(ShadowStyle.large())
     }
 }
 
