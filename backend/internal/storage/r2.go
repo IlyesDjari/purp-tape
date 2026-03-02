@@ -38,29 +38,29 @@ func (hr *HashingReader) Read(p []byte) (int, error) {
 
 // R2Client handles file uploads and signed URLs for Cloudflare R2
 type R2Client struct {
-	client     *s3.Client
-	uploader   *manager.Uploader
-	bucket     string
-	endpoint   string
-	accountID  string
-	log        *slog.Logger
-	presigned  *cachepkg.PresignedURLCache
-	presignCacheHits   atomic.Uint64
-	presignCacheMisses atomic.Uint64
-	uploadedBytes      atomic.Uint64
-	deleteOps          atomic.Uint64
-	batchDeleteOps     atomic.Uint64
-	deletedObjects     atomic.Uint64
+	client                 *s3.Client
+	uploader               *manager.Uploader
+	bucket                 string
+	endpoint               string
+	accountID              string
+	log                    *slog.Logger
+	presigned              *cachepkg.PresignedURLCache
+	presignCacheHits       atomic.Uint64
+	presignCacheMisses     atomic.Uint64
+	uploadedBytes          atomic.Uint64
+	deleteOps              atomic.Uint64
+	batchDeleteOps         atomic.Uint64
+	deletedObjects         atomic.Uint64
 	lifecyclePolicyApplied atomic.Uint64
 }
 
 type FinOpsMetrics struct {
-	PresignCacheHits   uint64
-	PresignCacheMisses uint64
-	UploadedBytes      uint64
-	DeleteOps          uint64
-	BatchDeleteOps     uint64
-	DeletedObjects     uint64
+	PresignCacheHits       uint64
+	PresignCacheMisses     uint64
+	UploadedBytes          uint64
+	DeleteOps              uint64
+	BatchDeleteOps         uint64
+	DeletedObjects         uint64
 	LifecyclePolicyApplied uint64
 }
 
@@ -104,7 +104,11 @@ func NewR2Client(accessKeyID, secretAccessKey, endpoint, bucket, accountID strin
 
 // UploadFile uploads a file to R2 with streaming (memory-efficient)
 // ✅ EFFICIENT: Uses HashingReader to stream upload without loading entire file into RAM
-func (rc *R2Client) UploadFile(ctx context.Context, objectKey string, file io.Reader) (*UploadResult, error) {
+func (rc *R2Client) UploadFile(ctx context.Context, objectKey string, file io.Reader, contentType string) (*UploadResult, error) {
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
 	// Create hashing reader that calculates SHA256 while streaming
 	hashingReader := &HashingReader{
 		reader: file,
@@ -114,13 +118,14 @@ func (rc *R2Client) UploadFile(ctx context.Context, objectKey string, file io.Re
 	// Upload to R2 using streaming
 	// The S3 manager handles multipart uploads for large files automatically
 	_, err := rc.uploader.Upload(ctx, &s3.PutObjectInput{
-		Bucket: aws.String(rc.bucket),
-		Key:    aws.String(objectKey),
-		Body:   hashingReader,
+		Bucket:      aws.String(rc.bucket),
+		Key:         aws.String(objectKey),
+		Body:        hashingReader,
+		ContentType: aws.String(contentType),
 		// Set metadata for easy identification
 		Metadata: map[string]string{
-			"checksum":   fmt.Sprintf("%x", hashingReader.hash.Sum(nil)),
-			"uploaded":   time.Now().UTC().Format(time.RFC3339),
+			"checksum": fmt.Sprintf("%x", hashingReader.hash.Sum(nil)),
+			"uploaded": time.Now().UTC().Format(time.RFC3339),
 		},
 	})
 	if err != nil {
@@ -226,12 +231,12 @@ func (rc *R2Client) DeleteFilesBatch(ctx context.Context, objectKeys []string) e
 
 func (rc *R2Client) GetFinOpsMetrics() FinOpsMetrics {
 	return FinOpsMetrics{
-		PresignCacheHits:   rc.presignCacheHits.Load(),
-		PresignCacheMisses: rc.presignCacheMisses.Load(),
-		UploadedBytes:      rc.uploadedBytes.Load(),
-		DeleteOps:          rc.deleteOps.Load(),
-		BatchDeleteOps:     rc.batchDeleteOps.Load(),
-		DeletedObjects:     rc.deletedObjects.Load(),
+		PresignCacheHits:       rc.presignCacheHits.Load(),
+		PresignCacheMisses:     rc.presignCacheMisses.Load(),
+		UploadedBytes:          rc.uploadedBytes.Load(),
+		DeleteOps:              rc.deleteOps.Load(),
+		BatchDeleteOps:         rc.batchDeleteOps.Load(),
+		DeletedObjects:         rc.deletedObjects.Load(),
 		LifecyclePolicyApplied: rc.lifecyclePolicyApplied.Load(),
 	}
 }
@@ -242,29 +247,29 @@ func (rc *R2Client) EnsureLifecyclePolicies(ctx context.Context) error {
 		LifecycleConfiguration: &types.BucketLifecycleConfiguration{
 			Rules: []types.LifecycleRule{
 				{
-					ID:     aws.String("purptape-temp-expire"),
-					Status: types.ExpirationStatusEnabled,
-					Prefix: aws.String("temp/"),
-					Expiration: &types.LifecycleExpiration{Days: aws.Int32(7)},
+					ID:                             aws.String("purptape-temp-expire"),
+					Status:                         types.ExpirationStatusEnabled,
+					Prefix:                         aws.String("temp/"),
+					Expiration:                     &types.LifecycleExpiration{Days: aws.Int32(7)},
 					AbortIncompleteMultipartUpload: &types.AbortIncompleteMultipartUpload{DaysAfterInitiation: aws.Int32(2)},
 				},
 				{
-					ID:     aws.String("purptape-covers-multipart-abort"),
-					Status: types.ExpirationStatusEnabled,
-					Prefix: aws.String("covers/"),
+					ID:                             aws.String("purptape-covers-multipart-abort"),
+					Status:                         types.ExpirationStatusEnabled,
+					Prefix:                         aws.String("covers/"),
 					AbortIncompleteMultipartUpload: &types.AbortIncompleteMultipartUpload{DaysAfterInitiation: aws.Int32(2)},
 				},
 				{
-					ID:     aws.String("purptape-tracks-multipart-abort"),
-					Status: types.ExpirationStatusEnabled,
-					Prefix: aws.String("tracks/"),
+					ID:                             aws.String("purptape-tracks-multipart-abort"),
+					Status:                         types.ExpirationStatusEnabled,
+					Prefix:                         aws.String("tracks/"),
 					AbortIncompleteMultipartUpload: &types.AbortIncompleteMultipartUpload{DaysAfterInitiation: aws.Int32(2)},
 				},
 				{
-					ID:     aws.String("purptape-processed-retention"),
-					Status: types.ExpirationStatusEnabled,
-					Prefix: aws.String("processed/"),
-					Expiration: &types.LifecycleExpiration{Days: aws.Int32(365)},
+					ID:                             aws.String("purptape-processed-retention"),
+					Status:                         types.ExpirationStatusEnabled,
+					Prefix:                         aws.String("processed/"),
+					Expiration:                     &types.LifecycleExpiration{Days: aws.Int32(365)},
 					AbortIncompleteMultipartUpload: &types.AbortIncompleteMultipartUpload{DaysAfterInitiation: aws.Int32(2)},
 				},
 			},

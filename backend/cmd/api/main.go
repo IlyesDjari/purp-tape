@@ -43,6 +43,13 @@ func main() {
 	}
 	defer database.Close()
 
+	// Run database migrations
+	if err := db.RunMigrations(context.Background(), database.Pool(), "./migrations"); err != nil {
+		log.Error("failed to run migrations (continuing startup with compatibility fallbacks)", "error", err)
+	} else {
+		log.Info("database migrations completed successfully")
+	}
+
 	// Initialize R2 storage client
 	r2Client, err := storage.NewR2Client(
 		cfg.R2AccessKeyID,

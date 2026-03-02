@@ -1,8 +1,10 @@
 import Foundation
 
 @MainActor
-public final class AppContainer {
-    public let authService: AuthService
+public final class AppContainer: ObservableObject {
+    public let authContainer: AuthContainer
+    public var authService: AuthService { authContainer.authService }
+    public var authViewModel: AuthViewModel { authContainer.authViewModel }
     public let apiClient: APIClient
     public let signedURLCache: SignedURLCache
 
@@ -25,8 +27,7 @@ public final class AppContainer {
             supabaseAnonKey: supabaseAnonKey,
             vault: vault
         )
-
-        self.authService = authService
+        self.authContainer = AuthContainer(authService: authService, vault: vault)
         self.apiClient = URLSessionAPIClient(baseURL: apiBaseURL, authService: authService)
         self.signedURLCache = InMemorySignedURLCache()
     }

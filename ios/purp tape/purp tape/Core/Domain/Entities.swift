@@ -5,12 +5,14 @@ public struct Project: Sendable, Identifiable, Codable, Hashable {
     public let name: String
     public let description: String?
     public let isPublic: Bool
+    public let coverImageURL: String?
 
-    public init(id: UUID, name: String, description: String?, isPublic: Bool) {
+    public init(id: UUID, name: String, description: String?, isPublic: Bool, coverImageURL: String? = nil) {
         self.id = id
         self.name = name
         self.description = description
         self.isPublic = isPublic
+        self.coverImageURL = coverImageURL
     }
 }
 

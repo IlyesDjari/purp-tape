@@ -63,13 +63,23 @@ struct RootView: View {
 struct MainAppView: View {
     @ObservedObject var authViewModel: AuthViewModel
     @StateObject private var navigationManager = NavigationManager()
+    @StateObject private var playbackController = TrackPlaybackController()
+    @State private var activePlayingTrack: Track?
     @Namespace private var tabAnimation
     
     var body: some View {
         NavigationStack(path: $navigationManager.navigationPath) {
             VStack(spacing: 0) {
                 ZStack {
-                    ProjectsTabContent(authViewModel: authViewModel)
+                    ProjectsTabContent(
+                        authViewModel: authViewModel,
+                        playbackController: playbackController,
+                        onActiveTrackChange: { track in
+                            withAnimation(.spring(response: 0.38, dampingFraction: 0.84)) {
+                                activePlayingTrack = track
+                            }
+                        }
+                    )
                         .opacity(navigationManager.selectedTab == .projects ? 1 : 0)
                         .zIndex(navigationManager.selectedTab == .projects ? 1 : 0)
                         .allowsHitTesting(navigationManager.selectedTab == .projects)
@@ -91,6 +101,22 @@ struct MainAppView: View {
                 }
                 .animation(.easeInOut(duration: 0.22), value: navigationManager.selectedTab)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                if let track = activePlayingTrack {
+                    MusicPlayerRow(
+                        title: track.title,
+                        trailingText: playbackTimingText(fallbackDurationSeconds: track.durationSeconds),
+                        isPlaying: playbackController.isPlaying,
+                        isBuffering: playbackController.isBuffering,
+                        progress: playbackController.progress,
+                        onTogglePlayback: {
+                            playbackController.toggleCurrentTrackPlayback()
+                        }
+                    )
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.sm)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
 
                 PurpTapeAnimatedTabBar(
                     selectedTab: $navigationManager.selectedTab,
@@ -129,6 +155,20 @@ struct MainAppView: View {
                 navigationManager.dismissAlert()
             }
         }
+    }
+
+    private func formatDuration(_ seconds: Int) -> String {
+        let minutes = seconds / 60
+        let secs = seconds % 60
+        return String(format: "%d:%02d", minutes, secs)
+    }
+
+    private func playbackTimingText(fallbackDurationSeconds: Int) -> String {
+        let elapsed = max(0, Int(playbackController.currentTimeSeconds))
+        let duration = playbackController.durationSeconds > 0
+            ? Int(playbackController.durationSeconds)
+            : fallbackDurationSeconds
+        return "\(formatDuration(elapsed))/\(formatDuration(duration))"
     }
 }
 

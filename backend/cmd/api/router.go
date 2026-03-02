@@ -13,24 +13,24 @@ import (
 )
 
 type appHandlers struct {
-	OpsConsole          http.HandlerFunc
-	OpsEndpointCatalog  http.HandlerFunc
-	health        *handlers.HealthHandlers
-	project       *handlers.ProjectHandlers
-	track         *handlers.TrackHandlers
-	rollback      *handlers.TrackRollbackHandlers
-	image         *handlers.ImageHandlers
-	payment       *handlers.PaymentHandlers
-	offline       *handlers.OfflineHandlers
-	compliance    *handlers.ComplianceHandlers
-	collaboration *handlers.CollaborationHandlers
-	download      *handlers.DownloadHandlers
-	share         *handlers.ShareHandlers
-	analytics     *handlers.AnalyticsHandlers
-	search        *handlers.SearchHandlers
-	finops        *handlers.FinOpsHandlers
-	notifications *handlers.NotificationHandlers
-	graphql       *graphql.Resolver
+	OpsConsole         http.HandlerFunc
+	OpsEndpointCatalog http.HandlerFunc
+	health             *handlers.HealthHandlers
+	project            *handlers.ProjectHandlers
+	track              *handlers.TrackHandlers
+	rollback           *handlers.TrackRollbackHandlers
+	image              *handlers.ImageHandlers
+	payment            *handlers.PaymentHandlers
+	offline            *handlers.OfflineHandlers
+	compliance         *handlers.ComplianceHandlers
+	collaboration      *handlers.CollaborationHandlers
+	download           *handlers.DownloadHandlers
+	share              *handlers.ShareHandlers
+	analytics          *handlers.AnalyticsHandlers
+	search             *handlers.SearchHandlers
+	finops             *handlers.FinOpsHandlers
+	notifications      *handlers.NotificationHandlers
+	graphql            *graphql.Resolver
 }
 
 func newAppHandlers(
@@ -44,24 +44,24 @@ func newAppHandlers(
 	auditLogger := audit.NewLogger(database, log)
 
 	return appHandlers{
-		OpsConsole:          handlers.OpsConsole,
-		OpsEndpointCatalog:  handlers.OpsEndpointCatalog,
-		health:        handlers.NewHealthHandlers(database, r2Client, log),
-		project:       handlers.NewProjectHandlers(database, log),
-		track:         handlers.NewTrackHandlers(database, r2Client, log),
-		rollback:      handlers.NewTrackRollbackHandlers(database, log),
-		image:         handlers.NewImageHandlers(database, r2Client, log),
-		payment:       handlers.NewPaymentHandlers(database, log),
-		offline:       handlers.NewOfflineHandlers(database, r2Client, log),
-		compliance:    handlers.NewComplianceHandlers(database, auditLogger, log),
-		collaboration: handlers.NewCollaborationHandlers(database, log),
-		download:      handlers.NewDownloadHandlers(database, r2Client, log),
-		share:         handlers.NewShareHandlers(database, log),
-		analytics:     handlers.NewAnalyticsHandlers(database, log),
-		search:        handlers.NewSearchHandlers(database, log),
-		finops:        handlers.NewFinOpsHandlers(database, log),
-		notifications: handlers.NewNotificationHandlers(database, notifSvc, pushSvc, prefsSvc, log),
-		graphql:       graphql.NewResolver(database, notifSvc, pushSvc, prefsSvc, log),
+		OpsConsole:         handlers.OpsConsole,
+		OpsEndpointCatalog: handlers.OpsEndpointCatalog,
+		health:             handlers.NewHealthHandlers(database, r2Client, log),
+		project:            handlers.NewProjectHandlers(database, r2Client, log),
+		track:              handlers.NewTrackHandlers(database, r2Client, log),
+		rollback:           handlers.NewTrackRollbackHandlers(database, log),
+		image:              handlers.NewImageHandlers(database, r2Client, log),
+		payment:            handlers.NewPaymentHandlers(database, log),
+		offline:            handlers.NewOfflineHandlers(database, r2Client, log),
+		compliance:         handlers.NewComplianceHandlers(database, auditLogger, log),
+		collaboration:      handlers.NewCollaborationHandlers(database, log),
+		download:           handlers.NewDownloadHandlers(database, r2Client, log),
+		share:              handlers.NewShareHandlers(database, log),
+		analytics:          handlers.NewAnalyticsHandlers(database, log),
+		search:             handlers.NewSearchHandlers(database, log),
+		finops:             handlers.NewFinOpsHandlers(database, log),
+		notifications:      handlers.NewNotificationHandlers(database, notifSvc, pushSvc, prefsSvc, log),
+		graphql:            graphql.NewResolver(database, notifSvc, pushSvc, prefsSvc, log),
 	}
 }
 
@@ -86,7 +86,7 @@ func registerPublicRoutes(mux *http.ServeMux, handlers appHandlers) {
 	mux.HandleFunc("POST /webhooks/revenuecat", handlers.payment.RevenueCatWebhook)
 	mux.HandleFunc("GET /pricing/tiers", handlers.payment.GetPricingTiers)
 	mux.HandleFunc("POST /finops/cost-events", handlers.finops.IngestCostEvent)
-	
+
 	// GraphQL endpoint (public, but auth is checked in resolvers)
 	mux.HandleFunc("POST /graphql", handlers.graphql.GraphQLHandler)
 	mux.HandleFunc("GET /graphql", handlers.graphql.GraphQLHandler)
@@ -95,6 +95,7 @@ func registerPublicRoutes(mux *http.ServeMux, handlers appHandlers) {
 func registerProtectedRoutes(mux *http.ServeMux, handlers appHandlers, withAuth func(http.HandlerFunc) http.HandlerFunc) {
 	mux.HandleFunc("GET /projects", withAuth(handlers.project.ListProjects))
 	mux.HandleFunc("POST /projects", withAuth(handlers.project.CreateProject))
+	mux.HandleFunc("DELETE /projects/{id}", withAuth(handlers.project.DeleteProject))
 	mux.HandleFunc("GET /projects/{id}", withAuth(handlers.project.GetProject))
 	mux.HandleFunc("PATCH /projects/{project_id}/privacy", withAuth(handlers.collaboration.UpdateProjectPrivacy))
 	mux.HandleFunc("POST /projects/{project_id}/collaborators", withAuth(handlers.collaboration.AddCollaborator))
@@ -107,6 +108,7 @@ func registerProtectedRoutes(mux *http.ServeMux, handlers appHandlers, withAuth 
 	mux.HandleFunc("POST /projects/{project_id}/share-link/{share_hash}/regenerate", withAuth(handlers.share.RegenerateShareHash))
 
 	mux.HandleFunc("GET /tracks/{track_id}/versions", withAuth(handlers.track.ListTrackVersions))
+	mux.HandleFunc("DELETE /tracks/{track_id}", withAuth(handlers.track.DeleteTrack))
 	mux.HandleFunc("POST /tracks/{track_id}/versions", withAuth(handlers.track.UploadTrackVersion))
 	mux.HandleFunc("GET /tracks/{track_id}/versions/{version_id}/download", withAuth(handlers.download.DownloadTrackVersion))
 	mux.HandleFunc("POST /tracks/{track_id}/versions/{version_number}/rollback", withAuth(handlers.rollback.RollbackTrackVersion))
@@ -150,7 +152,7 @@ func registerProtectedRoutes(mux *http.ServeMux, handlers appHandlers, withAuth 
 	mux.HandleFunc("GET /compliance/privacy-settings", withAuth(handlers.compliance.GetPrivacySettings))
 	mux.HandleFunc("PATCH /compliance/privacy-settings", withAuth(handlers.compliance.UpdatePrivacySettings))
 	mux.HandleFunc("GET /finops/summary", withAuth(handlers.finops.GetSummary))
-	
+
 	// Notification endpoints (REST + GraphQL available)
 	mux.HandleFunc("GET /notifications", withAuth(handlers.notifications.GetNotifications))
 	mux.HandleFunc("POST /notifications/device-token", withAuth(handlers.notifications.RegisterDeviceToken))
