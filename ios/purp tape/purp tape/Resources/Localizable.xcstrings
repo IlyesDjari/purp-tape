@@ -13,6 +13,12 @@
     "Add Project" : {
 
     },
+    "Add Track" : {
+
+    },
+    "Add your first track to get started" : {
+
+    },
     "Alert" : {
 
     },
@@ -35,6 +41,9 @@
 
     },
     "Back to Sign In" : {
+
+    },
+    "Cancel" : {
 
     },
     "Check Your Email" : {
@@ -88,6 +97,9 @@
     "Enter the email address associated with your account. We'll send you a link to reset your password." : {
 
     },
+    "Enter track title" : {
+
+    },
     "Enter your email" : {
 
     },
@@ -107,6 +119,9 @@
 
     },
     "Expires At" : {
+
+    },
+    "File selected" : {
 
     },
     "Forgot password?" : {
@@ -150,10 +165,16 @@
     "Loading..." : {
 
     },
+    "MP3, WAV, or M4A" : {
+
+    },
     "Name" : {
 
     },
     "New Password" : {
+
+    },
+    "No tracks yet" : {
 
     },
     "Not Authenticated" : {
@@ -213,6 +234,9 @@
     "Retry" : {
 
     },
+    "Select Audio File" : {
+
+    },
     "Send Reset Link" : {
 
     },
@@ -252,10 +276,16 @@
     "Token Status" : {
 
     },
+    "Track Title" : {
+
+    },
     "Try Again" : {
 
     },
     "Try Another Email" : {
+
+    },
+    "Upload Track" : {
 
     },
     "Upload Track to %@" : {

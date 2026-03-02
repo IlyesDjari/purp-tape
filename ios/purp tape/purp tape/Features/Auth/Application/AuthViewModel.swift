@@ -16,6 +16,13 @@ public final class AuthViewModel: ObservableObject {
         self.authService = authService
     }
     
+    // MARK: - Accessors
+    
+    /// Exposed for dependency injection into other services
+    public var service: AuthService {
+        authService
+    }
+    
     // MARK: - Session Management
     
     @MainActor

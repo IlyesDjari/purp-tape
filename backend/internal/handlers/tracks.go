@@ -59,9 +59,9 @@ func (h *TrackHandlers) ListTracks(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"data": tracks,
 		"pagination": map[string]interface{}{
-			"limit":   limit,
-			"offset":  offset,
-			"total":   total,
+			"limit":    limit,
+			"offset":   offset,
+			"total":    total,
 			"has_more": int64(offset+limit) < total,
 		},
 	}
@@ -109,6 +109,48 @@ func (h *TrackHandlers) CreateTrack(w http.ResponseWriter, r *http.Request) {
 	}
 
 	helpers.WriteJSON(w, http.StatusCreated, track)
+}
+
+// DeleteTrack handles DELETE /tracks/{track_id} - soft-deletes a track
+func (h *TrackHandlers) DeleteTrack(w http.ResponseWriter, r *http.Request) {
+	userID, err := helpers.GetUserID(r)
+	if err != nil {
+		helpers.WriteUnauthorized(w)
+		return
+	}
+
+	trackID := r.PathValue("track_id")
+	if err := validation.ValidateTrackID(trackID); err != nil {
+		helpers.WriteBadRequest(w, "invalid track id")
+		return
+	}
+
+	track, err := h.db.GetTrackByID(r.Context(), trackID)
+	if err != nil || track == nil {
+		helpers.WriteNotFound(w, "track not found")
+		return
+	}
+
+	project, err := h.db.GetProjectByID(r.Context(), track.ProjectID, userID)
+	if err != nil || project == nil {
+		helpers.WriteForbidden(w, "access denied")
+		return
+	}
+
+	deleted, err := h.db.DeleteTrack(r.Context(), trackID)
+	if err != nil {
+		h.log.Error("failed to delete track", "error", err, "track_id", trackID)
+		helpers.WriteInternalError(w, h.log, err)
+		return
+	}
+
+	if !deleted {
+		helpers.WriteNotFound(w, "track not found")
+		return
+	}
+
+	h.log.Info("track deleted", "track_id", trackID, "user_id", userID)
+	helpers.WriteJSON(w, http.StatusOK, map[string]any{"deleted": true, "track_id": trackID})
 }
 
 // ListTrackVersions lists all versions of a track.
@@ -197,21 +239,29 @@ func (h *TrackHandlers) UploadTrackVersion(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Check subscription quota before creating version
-	subscription, err := h.db.GetUserSubscription(r.Context(), userID)
-	if err != nil {
-		h.log.Error("failed to get subscription", "error", err, "user_id", userID)
-		http.Error(w, "failed to check storage quota", http.StatusInternalServerError)
-		return
-	}
+	// Check subscription quota before creating version.
+	quotaMB := int64(1024)
+	usedMB := int64(0)
 
-	quotaMB, ok := subscription["storage_quota_mb"].(int64)
-	if !ok {
-		quotaMB = 1024
-	}
-	usedMB, ok := subscription["storage_used_mb"].(int64)
-	if !ok {
-		usedMB = 0
+	subscription, subErr := h.db.GetUserSubscription(r.Context(), userID)
+	if subErr != nil {
+		h.log.Warn("subscription lookup failed, using default quota",
+			"error", subErr,
+			"user_id", userID,
+			"default_quota_mb", quotaMB)
+
+		if calculatedUsedMB, usedErr := h.db.GetUserStorageUsed(r.Context(), userID); usedErr == nil {
+			usedMB = calculatedUsedMB
+		} else {
+			h.log.Warn("storage usage lookup failed, defaulting usage to 0", "error", usedErr, "user_id", userID)
+		}
+	} else {
+		if value, ok := subscription["storage_quota_mb"].(int64); ok {
+			quotaMB = value
+		}
+		if value, ok := subscription["storage_used_mb"].(int64); ok {
+			usedMB = value
+		}
 	}
 
 	availableStorageMB := quotaMB - usedMB
@@ -252,9 +302,10 @@ func (h *TrackHandlers) UploadTrackVersion(w http.ResponseWriter, r *http.Reques
 
 	// Create R2 object key (path in bucket) - enforces user_id prefix
 	r2ObjectKey := fmt.Sprintf("tracks/%s/%s/v%d-%s", userID, trackID, nextVersion, uuid.New().String())
+	contentType := fileHeader.Header.Get("Content-Type")
 
 	// Step 1: Upload to Cloudflare R2 FIRST (before DB so we can retry)
-	uploadResult, err := h.r2.UploadFile(r.Context(), r2ObjectKey, file)
+	uploadResult, err := h.r2.UploadFile(r.Context(), r2ObjectKey, file, contentType)
 	if err != nil {
 		h.log.Error("R2 upload failed", "error", err, "track_id", trackID, "version", nextVersion)
 		http.Error(w, "failed to upload file", http.StatusInternalServerError)
@@ -374,11 +425,11 @@ func (h *TrackHandlers) GetSignedPlayURL(w http.ResponseWriter, r *http.Request)
 
 	// Return signed URL response
 	response := map[string]interface{}{
-		"url":               signedURL,
+		"url":                signedURL,
 		"expires_in_seconds": 60, // 1 minute
-		"version":           latestVersion.VersionNumber,
-		"file_size":         latestVersion.FileSize,
-		"checksum":          latestVersion.Checksum,
+		"version":            latestVersion.VersionNumber,
+		"file_size":          latestVersion.FileSize,
+		"checksum":           latestVersion.Checksum,
 	}
 
 	helpers.WriteJSON(w, http.StatusOK, response)

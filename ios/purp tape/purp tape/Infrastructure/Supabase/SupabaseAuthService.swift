@@ -11,7 +11,12 @@ public actor SupabaseAuthService: AuthService {
     // PERFORMANCE: In-memory cache avoids keychain reads on every API request
     private var inMemorySession: AuthSession?
     private var lastVaultSyncTime: Date?
-    private let vaultSyncInterval: TimeInterval = 300 // 5 minutes - refresh from vault periodically
+    private let vaultSyncInterval: TimeInterval = 300 // 5 minutes
+    
+    // SECURITY: Token refresh synchronization - prevents concurrent refresh attempts
+    private var activeRefreshTask: Task<AuthSession, Error>?
+    private var lastRefreshAttempt: Date?
+    private let minRefreshInterval: TimeInterval = 1.0
 
     public init(supabaseURL: URL, supabaseAnonKey: String, vault: KeychainVault) {
         self.client = SupabaseClient(
@@ -53,11 +58,11 @@ public actor SupabaseAuthService: AuthService {
         if let cached = inMemorySession, !cached.isExpired {
             let timeUntilExpiry = cached.expiresAt.timeIntervalSince(Date())
             
-            // OPTIMIZATION: Proactively refresh if expiring soon (< 30 seconds)
+            // Proactively refresh if expiring soon (< 30 seconds)
             if timeUntilExpiry < 30 && timeUntilExpiry > 0 {
-                logger.warning("Token expiring soon, refreshing proactively")
+                logger.warning("Token expiring soon (\(Int(timeUntilExpiry))s), refreshing proactively")
                 do {
-                    return try await refreshIfNeeded()
+                    return try await refreshSessionDeduped()
                 } catch {
                     logger.warning("Proactive refresh failed, using current token")
                     return cached
@@ -68,7 +73,7 @@ public actor SupabaseAuthService: AuthService {
             let shouldSyncVault = lastVaultSyncTime == nil || 
                                   Date().timeIntervalSince(lastVaultSyncTime!) > vaultSyncInterval
             if shouldSyncVault {
-                Task { await syncVaultInBackground() }
+                Task { syncVaultInBackground() }
             }
             
             return cached
@@ -79,7 +84,7 @@ public actor SupabaseAuthService: AuthService {
             inMemorySession = cached
             lastVaultSyncTime = Date()
             let tokenPrefix = String(cached.accessToken.prefix(20))
-            logger.auth("Using cached session - Token: \(tokenPrefix)...")
+            logger.auth("Using vault token: \(tokenPrefix)...")
             return cached
         }
         
@@ -94,7 +99,11 @@ public actor SupabaseAuthService: AuthService {
             try await vault.saveSession(mapped)
             return mapped
         } catch {
-            return try await vault.loadSession()
+            let fallback = try await vault.loadSession()
+            if fallback != nil {
+                logger.warning("Supabase session retrieval failed, using vault fallback")
+            }
+            return fallback
         }
     }
 
@@ -102,10 +111,8 @@ public actor SupabaseAuthService: AuthService {
         logger.auth("Signing in user: \(email)")
         let session = try await client.auth.signIn(email: email, password: password)
         let mapped = map(session)
-        let tokenPrefix = String(mapped.accessToken.prefix(20))
-        logger.success("Sign in successful - Token: \(tokenPrefix)...")
+        logger.success("Sign in successful")
         
-        // PERFORMANCE: Update both memory and vault
         inMemorySession = mapped
         lastVaultSyncTime = Date()
         try await vault.saveSession(mapped)
@@ -124,10 +131,8 @@ public actor SupabaseAuthService: AuthService {
         )
 
         let mapped = map(session)
-        let tokenPrefix = String(mapped.accessToken.prefix(20))
-        logger.success("Apple Sign In successful - Token: \(tokenPrefix)...")
+        logger.success("Apple Sign In successful")
         
-        // PERFORMANCE: Update both memory and vault
         inMemorySession = mapped
         lastVaultSyncTime = Date()
         try await vault.saveSession(mapped)
@@ -137,38 +142,86 @@ public actor SupabaseAuthService: AuthService {
 
     public func signOut() async throws {
         logger.auth("Signing out user")
-        // OPTIMIZATION: Skip restoration - we're about to clear anyway
         try await client.auth.signOut()
         try await vault.clearSession()
-        inMemorySession = nil  // Clear memory cache
+        inMemorySession = nil
         lastVaultSyncTime = nil
-        didRestorePersistedSession = false  // Reset for next sign in
+        didRestorePersistedSession = false
         logger.success("User signed out successfully")
     }
 
     public func refreshIfNeeded() async throws -> AuthSession {
+        return try await refreshSessionDeduped()
+    }
+    
+    /// Deduplicated refresh to prevent concurrent refresh storms
+    private func refreshSessionDeduped() async throws -> AuthSession {
+        // Check if we've already refreshed very recently
+        if let lastAttempt = lastRefreshAttempt,
+           Date().timeIntervalSince(lastAttempt) < minRefreshInterval {
+            if let activeTask = activeRefreshTask {
+                return try await activeTask.value
+            }
+        }
+        
+        // If there's an active refresh task, wait for it
+        if let activeTask = activeRefreshTask {
+            return try await activeTask.value
+        }
+        
+        // Start new refresh
+        let task = Task {
+            try await performTokenRefresh()
+        }
+        
+        activeRefreshTask = task
+        lastRefreshAttempt = Date()
+        
+        defer {
+            activeRefreshTask = nil
+        }
+        
+        return try await task.value
+    }
+    
+    /// Performs the actual token refresh
+    private func performTokenRefresh() async throws -> AuthSession {
         logger.auth("Refreshing authentication session")
         try await restorePersistedSessionIfNeeded()
 
         do {
             let refreshed = try await client.auth.refreshSession()
             let mapped = map(refreshed)
-            let tokenPrefix = String(mapped.accessToken.prefix(20))
-            logger.success("Session refreshed - Token: \(tokenPrefix)...")
             
-            // PERFORMANCE: Update both memory and vault  
+            // Validate access token is present
+            guard !mapped.accessToken.isEmpty else {
+                logger.error("Token refresh returned empty access token")
+                throw AuthError.unknownError("Token refresh returned invalid token")
+            }
+            
+            // Update both memory and vault
             inMemorySession = mapped
             lastVaultSyncTime = Date()
             try await vault.saveSession(mapped)
+            
+            let expiresIn = Int(mapped.expiresAt.timeIntervalSince(Date()))
+            logger.success("Session refreshed (expires in \(expiresIn)s)")
             return mapped
         } catch {
+            logger.error("Token refresh failed: \(error.localizedDescription)")
+            
+            // Fallback: use valid cached session if refresh fails
             if let current = try await vault.loadSession(), !current.isExpired {
-                logger.warning("Refresh failed, using cached session")
-                inMemorySession = current  // Update memory cache
-                lastVaultSyncTime = Date()
-                return current
+                let timeLeft = Int(current.expiresAt.timeIntervalSince(Date()))
+                if timeLeft > 0 {
+                    logger.warning("Refresh failed, using cached session (expires in \(timeLeft)s)")
+                    inMemorySession = current
+                    lastVaultSyncTime = Date()
+                    return current
+                }
             }
-            logger.error("Failed to refresh session")
+            
+            logger.error("No valid cached session available after refresh failure")
             throw error
         }
     }
@@ -178,7 +231,7 @@ public actor SupabaseAuthService: AuthService {
         defer { didRestorePersistedSession = true }
 
         guard let cached = try await vault.loadSession() else { return }
-        inMemorySession = cached  // Update memory cache
+        inMemorySession = cached
         lastVaultSyncTime = Date()
         _ = try await client.auth.setSession(
             accessToken: cached.accessToken,
@@ -186,13 +239,12 @@ public actor SupabaseAuthService: AuthService {
         )
     }
     
-    /// PERFORMANCE: Background sync with vault - avoids blocking currentSession()
+    /// Background sync with vault
     private func syncVaultInBackground() {
         Task {
             do {
                 if let latestSession = inMemorySession,
                    !latestSession.isExpired {
-                    // Quietly update vault in background
                     try await vault.saveSession(latestSession)
                     lastVaultSyncTime = Date()
                 }
