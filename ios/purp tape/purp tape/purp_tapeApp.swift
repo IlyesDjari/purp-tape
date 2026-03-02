@@ -8,6 +8,8 @@
 import SwiftUI
 import Supabase
 
+private let logger = DebugLogger(category: "app.init")
+
 @main
 struct purp_tapeApp: App {
     @State private var authContainer: AuthContainer? = purp_tapeApp.makeAuthContainer()
@@ -20,16 +22,26 @@ struct purp_tapeApp: App {
     private static func makeAuthContainer() -> AuthContainer? {
         // Get configuration from app bundle Info.plist
         guard let supabaseURLString = Bundle.main.infoDictionary?["SUPABASE_URL"] as? String,
-              let supabaseURL = URL(string: supabaseURLString) else {
-            print("⚠️ Supabase URL not configured")
+              !supabaseURLString.trimmingCharacters(in: .whitespaces).isEmpty else {
+            logger.error("Supabase URL not configured in Info.plist")
+            return nil
+        }
+        
+        guard let supabaseURL = URL(string: supabaseURLString),
+              supabaseURL.scheme != nil,
+              supabaseURL.host != nil else {
+            logger.error("Invalid Supabase URL format: \(supabaseURLString)")
+            logger.warning("Expected format: https://xxxxx.supabase.co")
             return nil
         }
         
         guard let supabaseAnonKey = Bundle.main.infoDictionary?["SUPABASE_ANON_KEY"] as? String,
               !supabaseAnonKey.isEmpty else {
-            print("⚠️ Supabase Anon Key not configured")
+            logger.error("Supabase Anon Key not configured in Info.plist")
             return nil
         }
+        
+        logger.success("Supabase configuration loaded successfully")
         
         // Initialize Keychain vault for secure token storage
         let vault = SecureEnclaveKeychainVault()
@@ -40,6 +52,8 @@ struct purp_tapeApp: App {
             supabaseAnonKey: supabaseAnonKey,
             vault: vault
         )
+        
+        logger.success("Auth service initialized")
         
         // Initialize auth container (dependency injection)
         return AuthContainer(authService: authService, vault: vault)

@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
@@ -32,8 +34,13 @@ type JWKSKey struct {
 	Kty string `json:"kty"`
 	Kid string `json:"kid"`
 	Use string `json:"use"`
-	N   string `json:"n"`
-	E   string `json:"e"`
+	// RSA fields
+	N string `json:"n"`
+	E string `json:"e"`
+	// ECDSA fields (for P-256 curve)
+	Crv string `json:"crv"`
+	X   string `json:"x"`
+	Y   string `json:"y"`
 }
 
 type JWKS struct {
@@ -89,21 +96,35 @@ func (v *Validator) ValidateToken(authHeader string) (*SupabaseJWT, error) {
 			return nil, fmt.Errorf("missing JWT secret for HMAC token validation")
 		}
 
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		// Handle RSA (RS256) tokens
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); ok {
+			kid, ok := token.Header["kid"].(string)
+			if !ok || kid == "" {
+				return nil, fmt.Errorf("missing key id for RSA token")
+			}
+
+			publicKey, err := v.getPublicKey(kid)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get public key: %w", err)
+			}
+			return publicKey, nil
 		}
 
-		// RS256 flow: key ID must exist and be resolved from JWKS
-		kid, ok := token.Header["kid"].(string)
-		if !ok || kid == "" {
-			return nil, fmt.Errorf("missing key id for RSA token")
+		// Handle ECDSA (ES256) tokens - Supabase uses ES256
+		if _, ok := token.Method.(*jwt.SigningMethodECDSA); ok {
+			kid, ok := token.Header["kid"].(string)
+			if !ok || kid == "" {
+				return nil, fmt.Errorf("missing key id for ECDSA token")
+			}
+
+			publicKey, err := v.getPublicKey(kid)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get public key: %w", err)
+			}
+			return publicKey, nil
 		}
 
-		publicKey, err := v.getPublicKey(kid)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get public key: %w", err)
-		}
-		return publicKey, nil
+		return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 	})
 
 	if err != nil {
@@ -172,7 +193,19 @@ func (v *Validator) getPublicKey(keyID string) (interface{}, error) {
 	defer v.keysMutex.Unlock()
 	v.publicKeyCache = make(map[string]interface{})
 	for _, key := range jwks.Keys {
-		pubKey, err := parseRSAPublicKeyFromJWKS(key)
+		var pubKey interface{}
+		var err error
+
+		// Try to parse as RSA key
+		if key.Kty == "RSA" {
+			pubKey, err = parseRSAPublicKeyFromJWKS(key)
+		} else if key.Kty == "EC" {
+			// Try to parse as ECDSA key (Supabase uses EC keys with ES256)
+			pubKey, err = parseECDSAPublicKeyFromJWKS(key)
+		} else {
+			continue
+		}
+
 		if err == nil && pubKey != nil {
 			v.publicKeyCache[key.Kid] = pubKey
 		}
@@ -213,6 +246,35 @@ func parseRSAPublicKeyFromJWKS(key JWKSKey) (*rsa.PublicKey, error) {
 	return &rsa.PublicKey{
 		N: new(big.Int).SetBytes(nBytes),
 		E: e,
+	}, nil
+}
+
+// parseECDSAPublicKeyFromJWKS parses an ECDSA public key from JWKS format
+// This is used for ES256 tokens from Supabase
+func parseECDSAPublicKeyFromJWKS(key JWKSKey) (*ecdsa.PublicKey, error) {
+	if key.Kty != "EC" {
+		return nil, fmt.Errorf("unsupported key type for ECDSA: %s", key.Kty)
+	}
+
+	if key.Crv != "P-256" {
+		return nil, fmt.Errorf("unsupported curve: %s, only P-256 is supported", key.Crv)
+	}
+
+	// Decode X and Y coordinates
+	xBytes, err := base64.RawURLEncoding.DecodeString(key.X)
+	if err != nil {
+		return nil, fmt.Errorf("invalid X coordinate encoding: %w", err)
+	}
+
+	yBytes, err := base64.RawURLEncoding.DecodeString(key.Y)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Y coordinate encoding: %w", err)
+	}
+
+	return &ecdsa.PublicKey{
+		Curve: elliptic.P256(),
+		X:     new(big.Int).SetBytes(xBytes),
+		Y:     new(big.Int).SetBytes(yBytes),
 	}, nil
 }
 
