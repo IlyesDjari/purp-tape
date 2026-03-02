@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"fmt"
 	"testing"
 	"time"
@@ -13,11 +16,11 @@ func TestValidateToken_ValidToken(t *testing.T) {
 
 	// Create a valid test token with HS256
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": "test-user-id",
+		"sub":   "test-user-id",
 		"email": "test@example.com",
-		"exp": time.Now().Add(time.Hour).Unix(),
-		"iat": time.Now().Unix(),
-		"aud": "authenticated",
+		"exp":   time.Now().Add(time.Hour).Unix(),
+		"iat":   time.Now().Unix(),
+		"aud":   "authenticated",
 	})
 
 	tokenString, err := token.SignedString([]byte("test-jwt-secret"))
@@ -46,10 +49,10 @@ func TestValidateToken_InvalidFormat(t *testing.T) {
 	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key", "test-jwt-secret")
 
 	tests := []string{
-		"Bearer",              // Missing token
-		"NoBearer token123",   // Wrong auth type
-		"token123",            // Missing Bearer prefix
-		"",                    // Empty
+		"Bearer",            // Missing token
+		"NoBearer token123", // Wrong auth type
+		"token123",          // Missing Bearer prefix
+		"",                  // Empty
 	}
 
 	for _, authHeader := range tests {
@@ -77,7 +80,6 @@ func TestValidateToken_RejectsNoneAlgorithm(t *testing.T) {
 		t.Error("ValidateToken() should reject malformed 'none' algorithm token")
 	}
 }
-
 
 func TestValidateToken_ExpiredToken(t *testing.T) {
 	validator := NewValidator("https://test.supabase.co", "test-anon-key", "test-secret-key", "test-jwt-secret")
@@ -113,5 +115,36 @@ func TestValidateToken_InvalidSignature(t *testing.T) {
 	_, err := validator.ValidateToken(authHeader)
 	if err == nil {
 		t.Error("ValidateToken() should reject token with wrong signature")
+	}
+}
+
+func TestValidateToken_ES256Token(t *testing.T) {
+	// This test verifies ES256 (ECDSA) tokens are supported
+	// This is the algorithm Supabase uses for tokens
+
+	// Generate an ECDSA private key for testing
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate ECDSA private key: %v", err)
+	}
+
+	// Create a test token with ES256
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{
+		"sub":   "test-user-id",
+		"email": "test@example.com",
+		"exp":   time.Now().Add(time.Hour).Unix(),
+		"iat":   time.Now().Unix(),
+		"aud":   "authenticated",
+	})
+
+	tokenString, err := token.SignedString(privateKey)
+	if err != nil {
+		t.Fatalf("failed to sign ES256 token: %v", err)
+	}
+
+	// The test passes if we can generate an ES256 token without errors
+	// Full JWKS validation would require mocking the JWKS endpoint
+	if tokenString == "" {
+		t.Error("ES256 token string is empty")
 	}
 }

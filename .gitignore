@@ -5,6 +5,11 @@
 ## User settings
 xcuserdata/
 
+## Secrets - NEVER commit these!
+**/Secrets.xcconfig
+**/.env.local
+**/.env
+
 ## Obj-C/Swift specific
 *.hmap
 
