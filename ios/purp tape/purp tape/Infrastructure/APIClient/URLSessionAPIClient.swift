@@ -1,13 +1,36 @@
 import Foundation
 
+// PERFORMANCE: Shared decoder instance avoids allocations on every response
+private let sharedDecoder = JSONDecoder()
+
+// PERFORMANCE: Optimized URLSession configuration for API calls
+private func createOptimizedURLSession() -> URLSession {
+    let config = URLSessionConfiguration.default
+    
+    // Aggressive timeouts - fail fast on network issues
+    config.timeoutIntervalForRequest = 15      // 15s instead of 60s default
+    config.timeoutIntervalForResource = 30     // 30s instead of 300s+ default
+    
+    // Reliability improvements
+    config.waitsForConnectivity = true         // Don't fail on transient network changes
+    config.shouldUseExtendedBackgroundIdleMode = false
+    
+    // Performance tuning
+    config.httpMaximumConnectionsPerHost = 4   // Connection pooling
+    config.httpShouldUsePipelining = true      // Pipeline HTTP requests
+    
+    return URLSession(configuration: config)
+}
+
 public actor URLSessionAPIClient: APIClient {
     private let baseURL: URL
     private let session: URLSession
     private let authService: AuthService
+    private let logger = DebugLogger(category: "api.client")
 
-    public init(baseURL: URL, session: URLSession = .shared, authService: AuthService) {
+    public init(baseURL: URL, session: URLSession? = nil, authService: AuthService) {
         self.baseURL = baseURL
-        self.session = session
+        self.session = session ?? createOptimizedURLSession()
         self.authService = authService
     }
 
@@ -25,12 +48,15 @@ public actor URLSessionAPIClient: APIClient {
 
     private func buildRequest(endpoint: Endpoint) async throws -> URLRequest {
         guard let session = try await authService.currentSession() else {
+            logger.error("No active session - cannot build request")
             throw APIClientError.unauthorized
         }
         let fullURL = baseURL.appending(path: endpoint.path)
         var request = URLRequest(url: fullURL)
         request.httpMethod = endpoint.method
         request.httpBody = endpoint.body
+        let tokenPrefix = String(session.accessToken.prefix(20))
+        logger.network("Building request to \(endpoint.path) with token \(tokenPrefix)...")
         request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
         endpoint.headers.forEach { key, value in
             request.setValue(value, forHTTPHeaderField: key)
@@ -46,7 +72,8 @@ public actor URLSessionAPIClient: APIClient {
         switch httpResponse.statusCode {
         case 200 ..< 300:
             do {
-                return try JSONDecoder().decode(T.self, from: data)
+                // PERFORMANCE: Reuse shared decoder instance
+                return try sharedDecoder.decode(T.self, from: data)
             } catch {
                 throw APIClientError.transportError("Decoding failure: \(error.localizedDescription)")
             }
