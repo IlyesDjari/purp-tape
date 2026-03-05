@@ -158,8 +158,8 @@ func (v *Validator) getPublicKey(keyID string) (interface{}, error) {
 	}
 	v.keysMutex.RUnlock()
 
-	// Fetch from JWKS endpoint
-	jwksURL := fmt.Sprintf("%s/.well-known/jwks.json", v.supabaseURL)
+	// Fetch from JWKS endpoint (Supabase serves JWKS under /auth/v1/)
+	jwksURL := fmt.Sprintf("%s/auth/v1/.well-known/jwks.json", v.supabaseURL)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

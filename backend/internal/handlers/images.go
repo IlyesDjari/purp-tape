@@ -80,9 +80,10 @@ func (h *ImageHandlers) UploadCover(w http.ResponseWriter, r *http.Request) {
 	// Create R2 object key
 	imageID := uuid.New().String()
 	r2ObjectKey := fmt.Sprintf("covers/%s/%s/%s", userID, projectID, imageID)
+	contentType := fileHeader.Header.Get("Content-Type")
 
 	// Upload to R2
-	uploadResult, err := h.r2.UploadFile(r.Context(), r2ObjectKey, file)
+	uploadResult, err := h.r2.UploadFile(r.Context(), r2ObjectKey, file, contentType)
 	if err != nil {
 		h.log.Error("R2 cover upload failed", "error", err)
 		http.Error(w, "failed to upload cover", http.StatusInternalServerError)
@@ -91,13 +92,13 @@ func (h *ImageHandlers) UploadCover(w http.ResponseWriter, r *http.Request) {
 
 	// Create image record
 	image := &models.Image{
-		ID:         imageID,
-		UserID:     userID,
+		ID:          imageID,
+		UserID:      userID,
 		R2ObjectKey: uploadResult.Key,
-		MimeType:   fileHeader.Header.Get("Content-Type"),
-		FileSize:   uploadResult.FileSize,
-		AltText:    altText,
-		CreatedAt:  time.Now(),
+		MimeType:    fileHeader.Header.Get("Content-Type"),
+		FileSize:    uploadResult.FileSize,
+		AltText:     altText,
+		CreatedAt:   time.Now(),
 	}
 
 	if err := h.db.CreateImage(r.Context(), image); err != nil {

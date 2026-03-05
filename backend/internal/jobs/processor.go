@@ -19,9 +19,9 @@ import (
 
 // JobProcessor handles background jobs.
 type JobProcessor struct {
-	db  *db.Database
-	r2  *storage.R2Client
-	log *slog.Logger
+	db                *db.Database
+	r2                *storage.R2Client
+	log               *slog.Logger
 	workerConcurrency int
 	batchSize         int
 }
@@ -35,9 +35,9 @@ func NewJobProcessor(database *db.Database, r2Client *storage.R2Client, log *slo
 		batchSize = 10
 	}
 	return &JobProcessor{
-		db:  database,
-		r2:  r2Client,
-		log: log,
+		db:                database,
+		r2:                r2Client,
+		log:               log,
 		workerConcurrency: workerConcurrency,
 		batchSize:         batchSize,
 	}
@@ -134,8 +134,8 @@ func (jp *JobProcessor) processJob(ctx context.Context, job *db.JobData) error {
 		} else if decision.Block {
 			snapshot := decision.Snapshot
 			result = map[string]interface{}{
-				"status":                  "skipped_budget_guard",
-				"reason":                  decision.Reason,
+				"status":                   "skipped_budget_guard",
+				"reason":                   decision.Reason,
 				"budget_utilization_ratio": decision.UtilizationRatio,
 				"estimated_monthly_usd":    snapshot.EstimatedMonthlyCostUSD,
 				"actual_monthly_usd":       snapshot.ActualMonthlyCostUSD,
@@ -287,18 +287,18 @@ func (jp *JobProcessor) convertVideoToAudio(ctx context.Context, jobDataJSON jso
 	}
 	defer outputFile.Close()
 
-	uploadResult, err := jp.r2.UploadFile(ctx, audioR2Key, outputFile)
+	uploadResult, err := jp.r2.UploadFile(ctx, audioR2Key, outputFile, "audio/mpeg")
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload converted audio: %w", err)
 	}
 
 	return map[string]interface{}{
-		"status":             "completed",
-		"track_version_id":   trackVersionID,
-		"source_video_key":   videoR2Key,
+		"status":              "completed",
+		"track_version_id":    trackVersionID,
+		"source_video_key":    videoR2Key,
 		"converted_audio_key": uploadResult.Key,
-		"file_size_bytes":    uploadResult.FileSize,
-		"checksum":           uploadResult.Checksum,
+		"file_size_bytes":     uploadResult.FileSize,
+		"checksum":            uploadResult.Checksum,
 	}, nil
 }
 
@@ -373,18 +373,18 @@ func (jp *JobProcessor) generateWaveform(ctx context.Context, jobDataJSON json.R
 	}
 	defer waveformFile.Close()
 
-	uploadResult, err := jp.r2.UploadFile(ctx, waveformR2Key, waveformFile)
+	uploadResult, err := jp.r2.UploadFile(ctx, waveformR2Key, waveformFile, "image/png")
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload generated waveform: %w", err)
 	}
 
 	return map[string]interface{}{
-		"status":            "completed",
-		"track_version_id":  trackVersionID,
-		"source_audio_key":  audioR2Key,
+		"status":             "completed",
+		"track_version_id":   trackVersionID,
+		"source_audio_key":   audioR2Key,
 		"waveform_image_key": uploadResult.Key,
-		"file_size_bytes":   uploadResult.FileSize,
-		"checksum":          uploadResult.Checksum,
+		"file_size_bytes":    uploadResult.FileSize,
+		"checksum":           uploadResult.Checksum,
 	}, nil
 }
 
@@ -418,7 +418,7 @@ func (jp *JobProcessor) EnqueueCleanup(ctx context.Context, r2ObjectKey string) 
 // EnqueueVideoConversion queues video-to-audio conversion
 func (jp *JobProcessor) EnqueueVideoConversion(ctx context.Context, videoR2Key, trackVersionID string) (string, error) {
 	return jp.EnqueueJob(ctx, "convert_video_to_audio", map[string]interface{}{
-		"video_r2_key":    videoR2Key,
+		"video_r2_key":     videoR2Key,
 		"track_version_id": trackVersionID,
 	})
 }
@@ -426,7 +426,7 @@ func (jp *JobProcessor) EnqueueVideoConversion(ctx context.Context, videoR2Key, 
 // EnqueueWaveformGeneration queues waveform generation
 func (jp *JobProcessor) EnqueueWaveformGeneration(ctx context.Context, audioR2Key, trackVersionID string) (string, error) {
 	return jp.EnqueueJob(ctx, "generate_waveform", map[string]interface{}{
-		"audio_r2_key":    audioR2Key,
+		"audio_r2_key":     audioR2Key,
 		"track_version_id": trackVersionID,
 	})
 }

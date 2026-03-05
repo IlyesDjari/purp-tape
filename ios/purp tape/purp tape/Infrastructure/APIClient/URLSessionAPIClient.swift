@@ -27,6 +27,10 @@ public actor URLSessionAPIClient: APIClient {
     private let session: URLSession
     private let authService: AuthService
     private let logger = DebugLogger(category: "api.client")
+    
+    // SECURITY: Track 401 retries to prevent infinite loops
+    private var retryCount = 0
+    private let maxRetries = 1
 
     public init(baseURL: URL, session: URLSession? = nil, authService: AuthService) {
         self.baseURL = baseURL
@@ -35,15 +39,37 @@ public actor URLSessionAPIClient: APIClient {
     }
 
     public func send<T: Decodable & Sendable>(_ endpoint: Endpoint, decode type: T.Type) async throws -> T {
-        let request = try await buildRequest(endpoint: endpoint)
-        let (data, response) = try await session.data(for: request)
-        return try decodeResponse(data: data, response: response, as: type)
+        return try await sendWithRetry(endpoint: endpoint, decode: type)
     }
 
     public func upload<T: Decodable & Sendable>(_ endpoint: Endpoint, fileURL: URL, decode type: T.Type) async throws -> T {
         let request = try await buildRequest(endpoint: endpoint)
         let (data, response) = try await session.upload(for: request, fromFile: fileURL)
         return try decodeResponse(data: data, response: response, as: type)
+    }
+    
+    /// SECURITY: Automatic retry on 401 with token refresh
+    private func sendWithRetry<T: Decodable & Sendable>(
+        endpoint: Endpoint,
+        decode type: T.Type,
+        attempt: Int = 0
+    ) async throws -> T {
+        do {
+            let request = try await buildRequest(endpoint: endpoint)
+            let (data, response) = try await session.data(for: request)
+            return try decodeResponse(data: data, response: response, as: type)
+        } catch APIClientError.unauthorized where attempt < maxRetries {
+            logger.warning("HTTP 401, attempting token refresh (attempt \(attempt + 1))")
+            
+            do {
+                _ = try await authService.refreshIfNeeded()
+                try await Task.sleep(nanoseconds: 100_000_000) // 0.1s
+                return try await sendWithRetry(endpoint: endpoint, decode: type, attempt: attempt + 1)
+            } catch {
+                logger.error("Token refresh failed during retry: \(error.localizedDescription)")
+                throw APIClientError.unauthorized
+            }
+        }
     }
 
     private func buildRequest(endpoint: Endpoint) async throws -> URLRequest {
@@ -55,8 +81,6 @@ public actor URLSessionAPIClient: APIClient {
         var request = URLRequest(url: fullURL)
         request.httpMethod = endpoint.method
         request.httpBody = endpoint.body
-        let tokenPrefix = String(session.accessToken.prefix(20))
-        logger.network("Building request to \(endpoint.path) with token \(tokenPrefix)...")
         request.setValue("Bearer \(session.accessToken)", forHTTPHeaderField: "Authorization")
         endpoint.headers.forEach { key, value in
             request.setValue(value, forHTTPHeaderField: key)
@@ -72,7 +96,6 @@ public actor URLSessionAPIClient: APIClient {
         switch httpResponse.statusCode {
         case 200 ..< 300:
             do {
-                // PERFORMANCE: Reuse shared decoder instance
                 return try sharedDecoder.decode(T.self, from: data)
             } catch {
                 throw APIClientError.transportError("Decoding failure: \(error.localizedDescription)")
@@ -82,6 +105,10 @@ public actor URLSessionAPIClient: APIClient {
         case 429:
             throw APIClientError.rateLimited
         default:
+            let bodyText = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let bodyText, !bodyText.isEmpty {
+                throw APIClientError.transportError("HTTP \(httpResponse.statusCode): \(bodyText)")
+            }
             throw APIClientError.serverError(statusCode: httpResponse.statusCode)
         }
     }

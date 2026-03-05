@@ -28,16 +28,17 @@ func AuthMiddleware(validator *auth.Validator, log *slog.Logger) func(http.Handl
 
 			token := parts[1]
 
-			// Get user ID from token
-			userID, err := validator.GetUserIDFromToken(authHeader)
+			// Validate token and extract claims
+			claims, err := validator.ValidateToken(authHeader)
 			if err != nil {
 				log.Error("token validation failed", "error", err)
 				http.Error(w, "invalid token", http.StatusUnauthorized)
 				return
 			}
 
-			// Add user ID and token to context
-			ctx := context.WithValue(r.Context(), "user_id", userID)
+			// Add user info and token to context
+			ctx := context.WithValue(r.Context(), "user_id", claims.Sub)
+			ctx = context.WithValue(ctx, "user_email", claims.Email)
 			ctx = context.WithValue(ctx, "token", token)
 
 			next.ServeHTTP(w, r.WithContext(ctx))

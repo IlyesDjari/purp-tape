@@ -3,8 +3,12 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/IlyesDjari/purp-tape/backend/internal/models"
 )
@@ -38,6 +42,45 @@ func (db *Database) CreateUser(ctx context.Context, user *models.User) error {
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
 	}
+	return nil
+}
+
+// EnsureAuthUser upserts a user row for authenticated requests.
+// This prevents FK failures when domain actions reference users.id before any explicit signup sync.
+func (db *Database) EnsureAuthUser(ctx context.Context, userID, email string) error {
+	if strings.TrimSpace(userID) == "" {
+		return errors.New("user id is required")
+	}
+
+	normalizedEmail := strings.TrimSpace(strings.ToLower(email))
+	if normalizedEmail == "" {
+		normalizedEmail = fmt.Sprintf("%s@auth.local", userID)
+	}
+
+	username := normalizedEmail
+	if at := strings.Index(username, "@"); at > 0 {
+		username = username[:at]
+	}
+	username = strings.TrimSpace(username)
+	if username == "" {
+		username = "user"
+	}
+	if len(username) > 32 {
+		username = username[:32]
+	}
+
+	_, err := db.pool.Exec(ctx,
+		`INSERT INTO users (id, email, username, created_at, updated_at)
+		 VALUES ($1, $2, $3, NOW(), NOW())
+		 ON CONFLICT (id) DO UPDATE
+		 SET email = EXCLUDED.email,
+		     updated_at = NOW()`,
+		userID, normalizedEmail, username,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to ensure auth user: %w", err)
+	}
+
 	return nil
 }
 
@@ -88,6 +131,10 @@ func (db *Database) GetUserProjects(ctx context.Context, userID string) ([]model
 // GetUserProjectsPaginated retrieves user projects with pagination using denormalized access cache
 // Performance: O(1) access check instead of O(n*m) subqueries
 func (db *Database) GetUserProjectsPaginated(ctx context.Context, userID string, limit, offset int) ([]models.Project, int64, error) {
+	if strings.TrimSpace(userID) == "" {
+		return []models.Project{}, 0, nil
+	}
+
 	// Get total count using denormalized access table (1000x faster than nested JOINs)
 	var total int64
 	err := db.pool.QueryRow(ctx,
@@ -98,7 +145,16 @@ func (db *Database) GetUserProjectsPaginated(ctx context.Context, userID string,
 		userID,
 	).Scan(&total)
 	if err != nil {
+		if isUndefinedTable(err, "user_project_access") {
+			return db.getUserOwnedProjectsPaginated(ctx, userID, limit, offset)
+		}
 		return nil, 0, fmt.Errorf("failed to count projects: %w", err)
+	}
+
+	// Cache can be temporarily stale or not yet populated for freshly created projects.
+	// Fallback to owner-based listing when cache reports zero rows.
+	if total == 0 {
+		return db.getUserOwnedProjectsPaginated(ctx, userID, limit, offset)
 	}
 
 	// Get paginated results using denormalized access
@@ -112,6 +168,9 @@ func (db *Database) GetUserProjectsPaginated(ctx context.Context, userID string,
 		userID, limit, offset,
 	)
 	if err != nil {
+		if isUndefinedTable(err, "user_project_access") {
+			return db.getUserOwnedProjectsPaginated(ctx, userID, limit, offset)
+		}
 		return nil, 0, fmt.Errorf("failed to get projects: %w", err)
 	}
 	defer rows.Close()
@@ -127,6 +186,67 @@ func (db *Database) GetUserProjectsPaginated(ctx context.Context, userID string,
 	return projects, total, rows.Err()
 }
 
+func (db *Database) getUserOwnedProjectsPaginated(ctx context.Context, userID string, limit, offset int) ([]models.Project, int64, error) {
+	var total int64
+	err := db.pool.QueryRow(ctx,
+		`SELECT COUNT(*)
+		 FROM projects p
+		 WHERE p.user_id = $1 AND p.deleted_at IS NULL`,
+		userID,
+	).Scan(&total)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count owned projects: %w", err)
+	}
+
+	rows, err := db.pool.Query(ctx,
+		`SELECT p.id, p.user_id, p.name, p.description, p.created_at, p.updated_at, p.is_private, p.cover_image_id, p.deleted_at
+		 FROM projects p
+		 WHERE p.user_id = $1 AND p.deleted_at IS NULL
+		 ORDER BY p.updated_at DESC
+		 LIMIT $2 OFFSET $3`,
+		userID, limit, offset,
+	)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get owned projects: %w", err)
+	}
+	defer rows.Close()
+
+	var projects []models.Project
+	for rows.Next() {
+		var project models.Project
+		if err := rows.Scan(&project.ID, &project.UserID, &project.Name, &project.Description, &project.CreatedAt, &project.UpdatedAt, &project.IsPrivate, &project.CoverImageID, &project.DeletedAt); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan owned project: %w", err)
+		}
+		projects = append(projects, project)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("failed to iterate owned projects: %w", err)
+	}
+
+	return projects, total, nil
+}
+
+func isUndefinedTable(err error, tableName string) bool {
+	if err == nil {
+		return false
+	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "42P01" {
+		if tableName == "" || strings.EqualFold(pgErr.TableName, tableName) {
+			return true
+		}
+	}
+
+	message := strings.ToLower(err.Error())
+	if tableName == "" {
+		return strings.Contains(message, "does not exist")
+	}
+
+	return strings.Contains(message, "relation \""+strings.ToLower(tableName)+"\" does not exist")
+}
+
 // CreateProject creates a new project
 func (db *Database) CreateProject(ctx context.Context, project *models.Project) error {
 	err := db.pool.QueryRow(ctx,
@@ -139,6 +259,36 @@ func (db *Database) CreateProject(ctx context.Context, project *models.Project) 
 		return fmt.Errorf("failed to create project: %w", err)
 	}
 	return nil
+}
+
+// DeleteProject soft-deletes a project owned by the user.
+func (db *Database) DeleteProject(ctx context.Context, projectID, userID string) (bool, error) {
+	tx, err := db.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to begin delete project transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `SELECT set_config('request.jwt.claim.sub', $1, true)`, userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to set auth context for delete project: %w", err)
+	}
+
+	result, err := tx.Exec(ctx,
+		`UPDATE projects
+		 SET deleted_at = NOW(), updated_at = NOW()
+		 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+		projectID, userID,
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete project: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("failed to commit delete project transaction: %w", err)
+	}
+
+	return result.RowsAffected() > 0, nil
 }
 
 // Track Queries
@@ -217,6 +367,44 @@ func (db *Database) CreateTrack(ctx context.Context, track *models.Track) error 
 		return fmt.Errorf("failed to create track: %w", err)
 	}
 	return nil
+}
+
+// DeleteTrack soft-deletes a track and all its versions.
+func (db *Database) DeleteTrack(ctx context.Context, trackID string) (bool, error) {
+	tx, err := db.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to begin delete track transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	result, err := tx.Exec(ctx,
+		`UPDATE tracks
+		 SET deleted_at = NOW(), updated_at = NOW()
+		 WHERE id = $1 AND deleted_at IS NULL`,
+		trackID,
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to soft-delete track: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return false, nil
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE track_versions
+		 SET deleted_at = NOW()
+		 WHERE track_id = $1 AND deleted_at IS NULL`,
+		trackID,
+	); err != nil {
+		return false, fmt.Errorf("failed to soft-delete track versions: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("failed to commit delete track transaction: %w", err)
+	}
+
+	return true, nil
 }
 
 // TrackVersion Queries
@@ -540,8 +728,8 @@ func (db *Database) DeleteOfflineDownload(ctx context.Context, downloadID string
 
 // TrackVersionEngagement holds aggregated engagement metrics for a version list response.
 type TrackVersionEngagement struct {
-	TrackLikes     int64
-	CommentCounts  map[string]int64
+	TrackLikes    int64
+	CommentCounts map[string]int64
 }
 
 // GetTrackVersionEngagementBatch returns like count and per-version comment counts in batch.
